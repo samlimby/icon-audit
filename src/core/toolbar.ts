@@ -2,15 +2,12 @@ import { IconAuditOptions } from "./types";
 
 const ICON_SCAN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V4a1 1 0 0 1 1-1h3"/><path d="M17 3h3a1 1 0 0 1 1 1v3"/><path d="M21 17v3a1 1 0 0 1-1 1h-3"/><path d="M7 21H4a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3"/></svg>`;
 
-const ICON_REFRESH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.36L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.36L3 16"/><path d="M3 21v-5h5"/></svg>`;
-
 const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
 
 const ICON_TERMINAL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3"/><path d="M12 15h5"/></svg>`;
 
 export interface ToolbarCallbacks {
   onOpen: () => void;
-  onRescan: () => void;
   onClose: () => void;
   onToggleQueue: () => void;
 }
@@ -84,13 +81,6 @@ export function createToolbar(
 
   terminalWrap.append(terminalBtn, badge);
 
-  const rescanBtn = document.createElement("button");
-  rescanBtn.type = "button";
-  rescanBtn.className = "ia-icon-btn";
-  rescanBtn.title = "Rescan page";
-  rescanBtn.innerHTML = ICON_REFRESH;
-  rescanBtn.addEventListener("click", callbacks.onRescan);
-
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
   closeBtn.className = "ia-icon-btn";
@@ -98,7 +88,7 @@ export function createToolbar(
   closeBtn.innerHTML = ICON_CLOSE;
   closeBtn.addEventListener("click", callbacks.onClose);
 
-  pill.append(counts, terminalWrap, rescanBtn, closeBtn);
+  pill.append(counts, terminalWrap, closeBtn);
   root.append(previewIndicator, toggle, pill);
   shadowRoot.appendChild(root);
 
@@ -106,9 +96,9 @@ export function createToolbar(
     const show = previewCount > 0 && !queueOpen && root.dataset.active === "true";
     previewIndicator.hidden = !show;
     if (!show) return;
-    previewIndicator.textContent = `${previewCount} Icon${
+    previewIndicator.textContent = `${previewCount} Draft icon${
       previewCount === 1 ? "" : "s"
-    } Previewed`;
+    }`;
   }
 
   function setCounts(svg: number, img: number) {
@@ -145,7 +135,6 @@ export function createToolbar(
 
   function destroy() {
     toggle.removeEventListener("click", callbacks.onOpen);
-    rescanBtn.removeEventListener("click", callbacks.onRescan);
     closeBtn.removeEventListener("click", callbacks.onClose);
     terminalBtn.removeEventListener("click", callbacks.onToggleQueue);
     root.remove();

@@ -11,6 +11,7 @@ import {
   loadCustomPacks,
   saveCustomPacks,
 } from "./icons/custom-packs";
+import { flashCopied } from "./flash-copied";
 import type { ScannedElement } from "./types";
 
 const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
@@ -21,9 +22,8 @@ const ICON_TRAY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 
 export interface ReplacePanelCallbacks {
   onClose: () => void;
-  onCopyPrompt: (icon: CatalogIcon) => void;
-  onOpenInCursor: (icon: CatalogIcon) => void;
-  onPreview: (icon: CatalogIcon) => void;
+  onCopyPrompt: (icon: CatalogIcon) => void | boolean | Promise<boolean | void>;
+  onSelectIcon: (icon: CatalogIcon) => void;
 }
 
 export interface ReplacePanelHandle {
@@ -62,15 +62,19 @@ export function createReplacePanel(
   root.hidden = true;
 
   let library: IconLibraryId = "lucide";
-  let query = "settings";
+  let query = "";
   let selected: CatalogIcon | null = null;
   let current: ScannedElement | null = null;
   let packs: CustomPack[] = loadCustomPacks();
   let customMode: CustomMode = "manage";
   let browsingPackId: string | null = null;
+  let customPos: { left: number; top: number } | null = null;
+  let drag:
+    | { pointerId: number; offsetX: number; offsetY: number }
+    | null = null;
 
   root.innerHTML = `
-    <div class="ia-panel__header">
+    <div class="ia-panel__header ia-panel__drag" data-drag>
       <div class="ia-panel__title-row">
         <div class="ia-panel__title">Replace icon</div>
         <button type="button" class="ia-panel__icon-btn" data-close title="Close">${ICON_CLOSE}</button>
@@ -107,11 +111,10 @@ export function createReplacePanel(
     </div>
     <div class="ia-panel__footer" data-footer>
       <div class="ia-panel__actions" data-actions>
-        <button type="button" class="ia-btn ia-btn--ghost" data-preview>Preview</button>
-        <button type="button" class="ia-btn ia-btn--ghost" data-copy>Copy</button>
-        <button type="button" class="ia-btn ia-btn--primary" data-open-cursor>Open in Cursor</button>
+        <button type="button" class="ia-btn ia-btn--ghost" data-select>Select</button>
+        <button type="button" class="ia-btn ia-btn--primary" data-copy>Copy</button>
       </div>
-      <div class="ia-panel__hint" data-hint>Open in Cursor prefills chat via deeplink — review and send there. Copy keeps the prompt on the clipboard.</div>
+      <div class="ia-panel__hint" data-hint>Copies the agent prompt to your clipboard — paste it into Cursor, Claude Code, Codex, or any AI chat.</div>
     </div>
   `;
 
@@ -132,12 +135,38 @@ export function createReplacePanel(
   const actionsEl = root.querySelector("[data-actions]") as HTMLElement;
   const hintEl = root.querySelector("[data-hint]") as HTMLElement;
   const closeBtn = root.querySelector("[data-close]") as HTMLButtonElement;
-  const previewBtn = root.querySelector("[data-preview]") as HTMLButtonElement;
+  const selectBtn = root.querySelector("[data-select]") as HTMLButtonElement;
   const copyBtn = root.querySelector("[data-copy]") as HTMLButtonElement;
-  const openCursorBtn = root.querySelector(
-    "[data-open-cursor]"
-  ) as HTMLButtonElement;
   const chooseBtn = root.querySelector("[data-choose]") as HTMLButtonElement;
+  const dragHandle = root.querySelector("[data-drag]") as HTMLElement;
+
+  function applyPosition() {
+    if (!customPos) {
+      root.style.left = "";
+      root.style.top = "";
+      root.style.right = "";
+      return;
+    }
+    root.style.right = "auto";
+    root.style.left = `${customPos.left}px`;
+    root.style.top = `${customPos.top}px`;
+  }
+
+  function clampPosition(left: number, top: number) {
+    const margin = 8;
+    const width = root.offsetWidth || 360;
+    const height = root.offsetHeight || 200;
+    return {
+      left: Math.min(
+        Math.max(margin, left),
+        Math.max(margin, window.innerWidth - width - margin)
+      ),
+      top: Math.min(
+        Math.max(margin, top),
+        Math.max(margin, window.innerHeight - height - margin)
+      ),
+    };
+  }
 
   const libraries: { id: IconLibraryId; label: string }[] = [
     { id: "lucide", label: "Lucide" },
@@ -259,7 +288,7 @@ export function createReplacePanel(
       renderPacks();
     } else {
       hintEl.textContent =
-        "Open in Cursor prefills chat via deeplink — review and send there. Copy keeps the prompt on the clipboard.";
+        "Copies the agent prompt to your clipboard — paste it into Cursor, Claude Code, Codex, or any AI chat.";
       renderGrid();
       searchInput.value = query;
     }
@@ -374,29 +403,64 @@ export function createReplacePanel(
     if (files?.length) void importFiles(files);
   });
 
+  dragHandle.addEventListener("pointerdown", (e) => {
+    if ((e.target as HTMLElement).closest("[data-close]")) return;
+    if (e.button !== 0) return;
+    const rect = root.getBoundingClientRect();
+    root.style.right = "auto";
+    root.style.left = `${rect.left}px`;
+    root.style.top = `${rect.top}px`;
+    drag = {
+      pointerId: e.pointerId,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+    };
+    root.classList.add("is-dragging");
+    dragHandle.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  dragHandle.addEventListener("pointermove", (e) => {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    customPos = clampPosition(e.clientX - drag.offsetX, e.clientY - drag.offsetY);
+    applyPosition();
+  });
+
+  function endDrag(e: PointerEvent) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    drag = null;
+    root.classList.remove("is-dragging");
+    try {
+      dragHandle.releasePointerCapture(e.pointerId);
+    } catch {
+      // already released
+    }
+  }
+
+  dragHandle.addEventListener("pointerup", endDrag);
+  dragHandle.addEventListener("pointercancel", endDrag);
+
   closeBtn.addEventListener("click", () => callbacks.onClose());
-  previewBtn.addEventListener("click", () => {
-    if (selected) callbacks.onPreview(selected);
+  selectBtn.addEventListener("click", () => {
+    if (selected) callbacks.onSelectIcon(selected);
   });
   copyBtn.addEventListener("click", () => {
-    if (selected) callbacks.onCopyPrompt(selected);
-  });
-  openCursorBtn.addEventListener("click", () => {
-    if (selected) callbacks.onOpenInCursor(selected);
+    if (!selected) return;
+    void Promise.resolve(callbacks.onCopyPrompt(selected)).then((ok) => {
+      if (ok === false) return;
+      flashCopied(copyBtn, "Copy");
+    });
   });
 
   function open(scanned: ScannedElement) {
     current = scanned;
-    const seed =
-      scanned.src?.toLowerCase().match(/([a-z0-9-]+)\.(svg|png|jpg)/i)?.[1] ||
-      scanned.element.getAttribute("alt")?.toLowerCase().replace(/\s+icon$/, "") ||
-      "settings";
-    query = seed;
+    query = "";
     library = "lucide";
     selected = null;
     customMode = "manage";
     browsingPackId = null;
     packs = loadCustomPacks();
+    applyPosition();
     root.hidden = false;
     refresh();
   }

@@ -1,14 +1,15 @@
 import type { QueuedPrompt } from "./prompt";
+import { flashCopied } from "./flash-copied";
 
 const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
 const ICON_TERMINAL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3"/><path d="M12 15h5"/></svg>`;
+const ICON_TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`;
 
 export interface QueuePanelCallbacks {
   onClose: () => void;
-  onCopy: (prompt: QueuedPrompt) => void;
-  onSend: (prompt: QueuedPrompt) => void;
-  onCopyAllDrafts: () => void;
-  onSendAllDrafts: () => void;
+  onCopy: (prompt: QueuedPrompt) => void | boolean | Promise<boolean | void>;
+  onCopyAllDrafts: () => void | boolean | Promise<boolean | void>;
+  onDelete: (prompt: QueuedPrompt) => void;
 }
 
 export interface QueuePanelHandle {
@@ -48,10 +49,9 @@ export function createQueuePanel(
     <div class="ia-queue__list" data-list></div>
     <div class="ia-queue__footer">
       <div class="ia-panel__actions">
-        <button type="button" class="ia-btn ia-btn--ghost" data-copy-all>Copy all drafts</button>
-        <button type="button" class="ia-btn ia-btn--primary" data-send-all>Open drafts (0)</button>
+        <button type="button" class="ia-btn ia-btn--primary" data-copy-all>Copy all drafts</button>
       </div>
-      <div class="ia-panel__hint">Open in Cursor prefills chat — review and send there. Copy keeps prompts on the clipboard.</div>
+      <div class="ia-panel__hint">Copies the agent prompt to your clipboard — paste it into your AI tool.</div>
     </div>
   `;
 
@@ -59,7 +59,6 @@ export function createQueuePanel(
 
   const listEl = root.querySelector("[data-list]") as HTMLElement;
   const filtersEl = root.querySelector("[data-filters]") as HTMLElement;
-  const sendAllBtn = root.querySelector("[data-send-all]") as HTMLButtonElement;
 
   function filtered(): QueuedPrompt[] {
     if (filter === "all") return prompts;
@@ -74,13 +73,12 @@ export function createQueuePanel(
       <button type="button" class="ia-chip${filter === "draft" ? " is-active" : ""}" data-filter="draft">Draft ${draftCount}</button>
       <button type="button" class="ia-chip${filter === "sent" ? " is-active" : ""}" data-filter="sent">Sent ${sentCount}</button>
     `;
-    sendAllBtn.textContent = `Open drafts (${draftCount})`;
   }
 
   function renderList() {
     const items = filtered();
     if (items.length === 0) {
-      listEl.innerHTML = `<div class="ia-panel__empty">No prompts yet. Copy or Open in Cursor from Replace icon.</div>`;
+      listEl.innerHTML = `<div class="ia-panel__empty">No prompts yet. Copy an agent prompt from Replace icon.</div>`;
       return;
     }
 
@@ -95,7 +93,14 @@ export function createQueuePanel(
               <div class="ia-queue-card__title">${escapeHtml(p.title)}</div>
               <div class="ia-queue-card__meta">${escapeHtml(p.packageName)} · ${escapeHtml(p.locationHint)}</div>
             </div>
-            <div class="ia-queue-card__tag ia-queue-card__tag--${p.status}">${p.status === "draft" ? "Draft" : "Sent"}</div>
+            <div class="ia-queue-card__trailing">
+              ${
+                p.status === "draft"
+                  ? `<button type="button" class="ia-queue-card__delete" data-delete title="Delete draft">${ICON_TRASH}</button>`
+                  : ""
+              }
+              <div class="ia-queue-card__tag ia-queue-card__tag--${p.status}">${p.status === "draft" ? "Draft" : "Sent"}</div>
+            </div>
           </div>
           ${
             selected
@@ -104,8 +109,7 @@ export function createQueuePanel(
                   <pre>${escapeHtml(p.markdown)}</pre>
                 </div>
                 <div class="ia-queue-card__actions">
-                  <button type="button" class="ia-btn ia-btn--ghost" data-copy>Copy</button>
-                  <button type="button" class="ia-btn ia-btn--primary" data-send ${p.status === "sent" ? "disabled" : ""}>${p.status === "sent" ? "Opened" : "Open in Cursor"}</button>
+                  <button type="button" class="ia-btn ia-btn--primary" data-copy>Copy</button>
                 </div>`
               : ""
           }
@@ -136,11 +140,15 @@ export function createQueuePanel(
     if (!prompt) return;
 
     if (target.closest("[data-copy]")) {
-      callbacks.onCopy(prompt);
+      const btn = target.closest("[data-copy]") as HTMLElement;
+      void Promise.resolve(callbacks.onCopy(prompt)).then((ok) => {
+        if (ok === false) return;
+        flashCopied(btn, "Copy");
+      });
       return;
     }
-    if (target.closest("[data-send]")) {
-      callbacks.onSend(prompt);
+    if (target.closest("[data-delete]")) {
+      callbacks.onDelete(prompt);
       return;
     }
 
@@ -151,10 +159,13 @@ export function createQueuePanel(
   root.querySelector("[data-close]")?.addEventListener("click", () => {
     callbacks.onClose();
   });
-  root.querySelector("[data-copy-all]")?.addEventListener("click", () => {
-    callbacks.onCopyAllDrafts();
+  root.querySelector("[data-copy-all]")?.addEventListener("click", (e) => {
+    const btn = (e.currentTarget || e.target) as HTMLElement;
+    void Promise.resolve(callbacks.onCopyAllDrafts()).then((ok) => {
+      if (ok === false) return;
+      flashCopied(btn, "Copy all drafts");
+    });
   });
-  sendAllBtn.addEventListener("click", () => callbacks.onSendAllDrafts());
 
   function setPrompts(next: QueuedPrompt[]) {
     prompts = next;

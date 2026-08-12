@@ -2,12 +2,11 @@ import type { CatalogIcon } from "./icons/catalog";
 import { svgMarkupFor } from "./icons/catalog";
 import { bindShortcut } from "./shortcut";
 import { isDevEnvironment } from "./env";
-import { createOverlay, OverlayHandle, PREVIEW_ATTR } from "./overlay";
+import { createOverlay, DRAFT_ATTR, OverlayHandle } from "./overlay";
 import { createReplacePanel, ReplacePanelHandle } from "./panel";
 import {
   createQueuedPrompt,
   nearbyText,
-  openInCursor,
   QueuedPrompt,
   readFiberMeta,
 } from "./prompt";
@@ -60,17 +59,44 @@ function saveQueue(prompts: QueuedPrompt[]) {
   }
 }
 
-async function copyText(text: string) {
+function copyViaExecCommand(text: string): boolean {
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.setAttribute("aria-hidden", "true");
+  area.style.cssText =
+    "position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:0;opacity:0;pointer-events:none;";
+  document.body.appendChild(area);
+  area.focus();
+  area.select();
+  area.setSelectionRange(0, text.length);
+  let ok = false;
   try {
-    await navigator.clipboard.writeText(text);
+    ok = document.execCommand("copy");
   } catch {
-    const area = document.createElement("textarea");
-    area.value = text;
-    document.body.appendChild(area);
-    area.select();
-    document.execCommand("copy");
-    area.remove();
+    ok = false;
   }
+  area.remove();
+  return ok;
+}
+
+/** Copy agent prompt text to the system clipboard for pasting into AI tools. */
+async function copyText(text: string): Promise<boolean> {
+  if (!text) return false;
+
+  // Sync path first so we stay inside the click gesture.
+  if (copyViaExecCommand(text)) return true;
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -102,7 +128,8 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
   let active = false;
   let selected: ScannedElement | null = null;
   let prompts = loadQueue();
-  let previewCount = 0;
+  let rescanTimer: number | null = null;
+  let observer: MutationObserver | null = null;
 
   let toolbar!: ToolbarHandle;
   let overlay!: OverlayHandle;
@@ -140,14 +167,6 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
     queuePanel.setPrompts(prompts);
   }
 
-  function openPromptInCursor(prompt: QueuedPrompt) {
-    const result = openInCursor(prompt.markdown);
-    void copyText(prompt.markdown);
-    // Mark opened even when deeplink is too long — clipboard still handed off.
-    markSent(prompt.id);
-    return result;
-  }
-
   overlay = createOverlay(shadowRoot, {
     onSelect(item) {
       selected = item;
@@ -166,34 +185,26 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
     },
     onCopyPrompt(icon) {
       const prompt = enqueueFromIcon(icon);
-      if (prompt) void copyText(prompt.markdown);
+      if (!prompt) return false;
       queuePanel.open();
       toolbar.setQueueOpen(true);
+      return copyText(prompt.markdown);
     },
-    onOpenInCursor(icon) {
-      const prompt = enqueueFromIcon(icon);
-      if (!prompt) return;
-      openPromptInCursor(prompt);
-      queuePanel.open();
-      toolbar.setQueueOpen(true);
-    },
-    onPreview(icon) {
+    onSelectIcon(icon) {
       if (!selected) return;
       const rect = selected.element.getBoundingClientRect();
       const size = Math.max(14, Math.round(Math.max(rect.width, rect.height) || 18));
       const wrap = document.createElement("span");
-      wrap.setAttribute(PREVIEW_ATTR, "true");
+      wrap.setAttribute(DRAFT_ATTR, "true");
       wrap.style.display = "inline-flex";
       wrap.style.color = "currentColor";
       wrap.innerHTML = svgMarkupFor(icon, size);
-      const previewSvg = wrap.querySelector("svg");
-      previewSvg?.setAttribute(PREVIEW_ATTR, "true");
+      const draftSvg = wrap.querySelector("svg");
+      draftSvg?.setAttribute(DRAFT_ATTR, "true");
       selected.element.replaceWith(wrap);
       selected = null;
       overlay.setSelected(null);
       replacePanel.close();
-      previewCount += 1;
-      toolbar.setPreviewCount(previewCount);
       runScan();
     },
   });
@@ -204,30 +215,36 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
       toolbar.setQueueOpen(false);
     },
     onCopy(prompt) {
-      void copyText(prompt.markdown);
+      const copied = copyText(prompt.markdown);
+      if (prompt.status === "draft") markSent(prompt.id);
+      return copied;
     },
-    onSend(prompt) {
-      openPromptInCursor(prompt);
+    onDelete(prompt) {
+      prompts = prompts.filter((p) => p.id !== prompt.id);
+      saveQueue(prompts);
+      syncPromptBadge();
     },
     onCopyAllDrafts() {
       const drafts = prompts.filter((p) => p.status === "draft");
-      if (drafts.length === 0) return;
-      void copyText(drafts.map((p) => p.markdown).join("\n\n---\n\n"));
-    },
-    onSendAllDrafts() {
-      const drafts = prompts.filter((p) => p.status === "draft");
-      if (drafts.length === 0) return;
-      // Open the newest draft in Cursor; copy the rest for manual handoff.
-      void copyText(drafts.map((p) => p.markdown).join("\n\n---\n\n"));
-      openPromptInCursor(drafts[0]);
+      if (drafts.length === 0) return false;
+      const copied = copyText(drafts.map((p) => p.markdown).join("\n\n---\n\n"));
       const now = Date.now();
       prompts = prompts.map((p) =>
         p.status === "draft" ? { ...p, status: "sent" as const, sentAt: now } : p
       );
       saveQueue(prompts);
       syncPromptBadge();
+      return copied;
     },
   });
+
+  function countDraftIcons(scanned: ScannedElement[]): number {
+    return scanned.filter(
+      (s) =>
+        s.element.hasAttribute(DRAFT_ATTR) ||
+        Boolean(s.element.closest(`[${DRAFT_ATTR}]`))
+    ).length;
+  }
 
   function runScan() {
     const scanned = scanPage(scanRoot, classifyOptions);
@@ -236,6 +253,42 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
       scanned.filter((s) => s.tag === "svg").length,
       scanned.filter((s) => s.tag === "img").length
     );
+    // When the agent applies the change, our draft wrapper disappears and the
+    // new inline SVG rescans as a normal SVG (green) instead of Draft.
+    toolbar.setPreviewCount(countDraftIcons(scanned));
+  }
+
+  function scheduleRescan() {
+    if (!active) return;
+    if (rescanTimer !== null) window.clearTimeout(rescanTimer);
+    rescanTimer = window.setTimeout(() => {
+      rescanTimer = null;
+      runScan();
+    }, 150);
+  }
+
+  function startObserving() {
+    stopObserving();
+    const rootNode =
+      scanRoot instanceof Element || scanRoot instanceof Document
+        ? scanRoot
+        : document.body;
+    observer = new MutationObserver(() => scheduleRescan());
+    observer.observe(rootNode, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["src", "class", DRAFT_ATTR],
+    });
+  }
+
+  function stopObserving() {
+    observer?.disconnect();
+    observer = null;
+    if (rescanTimer !== null) {
+      window.clearTimeout(rescanTimer);
+      rescanTimer = null;
+    }
   }
 
   function open() {
@@ -243,12 +296,13 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
     toolbar.setActive(true);
     runScan();
     syncPromptBadge();
+    startObserving();
   }
 
   function close() {
     active = false;
     selected = null;
-    previewCount = 0;
+    stopObserving();
     toolbar.setActive(false);
     toolbar.setQueueOpen(false);
     toolbar.setPreviewCount(0);
@@ -264,7 +318,6 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
 
   toolbar = createToolbar(shadowRoot, position, {
     onOpen: open,
-    onRescan: runScan,
     onClose: close,
     onToggleQueue() {
       if (!active) open();
@@ -285,6 +338,7 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
   }
 
   function destroy() {
+    stopObserving();
     unbindShortcut();
     toolbar.destroy();
     overlay.destroy();

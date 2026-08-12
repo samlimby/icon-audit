@@ -1,11 +1,10 @@
 import type { ReactNode } from "react";
+import { Sliders } from "lucide-react";
 import { IconAudit } from "icon-audit/react";
 
 /** Remote-looking URL that will fail — classic red IMG case. */
 const REMOTE_BELL =
   "https://assets.example.com/icons/bell-icon.svg";
-const REMOTE_SETTINGS =
-  "https://assets.example.com/icons/settings-icon.svg";
 
 export default function App() {
   return (
@@ -25,13 +24,7 @@ export default function App() {
             width={18}
             height={18}
           />
-          <img
-            className="acme-icon"
-            src={REMOTE_SETTINGS}
-            alt="Settings icon"
-            width={18}
-            height={18}
-          />
+          <Sliders className="acme-icon" size={18} aria-label="Sliders" />
           <svg
             className="acme-icon"
             viewBox="0 0 24 24"

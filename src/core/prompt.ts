@@ -130,25 +130,3 @@ export function nearbyText(element: Element): string | undefined {
   if (!text) return undefined;
   return text.length > 80 ? `${text.slice(0, 77)}…` : text;
 }
-
-const CURSOR_DEEPLINK_MAX = 8000;
-
-/** Prefills Cursor chat via deeplink. Does not auto-submit. */
-export function openInCursor(promptText: string): { ok: boolean; reason?: string } {
-  const url = `cursor://anysphere.cursor-deeplink/prompt?text=${encodeURIComponent(promptText)}`;
-  if (url.length > CURSOR_DEEPLINK_MAX) {
-    return {
-      ok: false,
-      reason: "Prompt is too long for a Cursor deeplink — copied to clipboard instead.",
-    };
-  }
-
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.rel = "noopener";
-  anchor.style.display = "none";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  return { ok: true };
-}

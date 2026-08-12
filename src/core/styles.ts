@@ -43,8 +43,9 @@ export const STYLES = /* css */ `
     --ia-color: #ef4444;
   }
 
-  .ia-box--preview {
+  .ia-box--draft {
     --ia-color: #a855f7;
+    border-radius: 0;
   }
 
   .ia-box--selected {
@@ -54,16 +55,16 @@ export const STYLES = /* css */ `
     background: rgba(0, 152, 255, 0.12);
   }
 
-  .ia-box--preview.ia-box--selected {
+  .ia-box--draft.ia-box--selected {
     --ia-color: #a855f7;
     box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.28);
     background: rgba(168, 85, 247, 0.12);
   }
 
   .ia-badge {
-    position: absolute;
-    top: -9px;
-    left: -2px;
+    position: fixed;
+    top: 0;
+    left: 0;
     padding: 1px 5px;
     border-radius: 4px;
     font-size: 10px;
@@ -73,12 +74,29 @@ export const STYLES = /* css */ `
     color: #fff;
     background: var(--ia-color);
     white-space: nowrap;
+    pointer-events: none;
+    z-index: 3;
+    width: max-content;
+  }
+
+  .ia-badge--svg {
+    --ia-color: #22c55e;
+  }
+
+  .ia-badge--img {
+    --ia-color: #ef4444;
+  }
+
+  .ia-badge--draft {
+    --ia-color: #a855f7;
+    z-index: 4;
   }
 
   .ia-tooltip {
-    position: absolute;
-    top: calc(100% + 6px);
+    position: fixed;
+    top: 0;
     left: 0;
+    width: max-content;
     max-width: 260px;
     padding: 6px 9px;
     border-radius: 6px;
@@ -88,15 +106,15 @@ export const STYLES = /* css */ `
     line-height: 1.4;
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
     opacity: 0;
-    transform: translateY(-2px);
-    transition: opacity 120ms ease, transform 120ms ease;
+    transition: opacity 120ms ease;
     pointer-events: none;
-    z-index: 1;
+    z-index: 2;
+    word-break: break-word;
   }
 
-  .ia-box:hover .ia-tooltip {
+  .ia-box:hover .ia-tooltip,
+  .ia-tooltip.is-visible {
     opacity: 1;
-    transform: translateY(0);
   }
 
   .ia-toolbar {
@@ -271,6 +289,20 @@ export const STYLES = /* css */ `
   .ia-panel {
     top: 64px;
     right: 24px;
+  }
+
+  .ia-panel.is-dragging {
+    user-select: none;
+    cursor: grabbing;
+  }
+
+  .ia-panel__drag {
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .ia-panel.is-dragging .ia-panel__drag {
+    cursor: grabbing;
   }
 
   .ia-queue {
@@ -711,6 +743,20 @@ export const STYLES = /* css */ `
     font-weight: 600;
   }
 
+  .ia-btn.is-copied {
+    pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ia-btn__icon {
+    width: 14px;
+    height: 14px;
+    display: block;
+    flex-shrink: 0;
+  }
+
   .ia-btn:disabled {
     opacity: 0.5;
     cursor: default;
@@ -793,6 +839,47 @@ export const STYLES = /* css */ `
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .ia-queue-card__trailing {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .ia-queue-card__delete {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #a1a1aa;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+  }
+
+  .ia-queue-card:hover .ia-queue-card__delete,
+  .ia-queue-card.is-selected .ia-queue-card__delete,
+  .ia-queue-card__delete:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .ia-queue-card__delete:hover,
+  .ia-queue-card__delete:focus-visible {
+    background: #3f3f46;
+    color: #fafafa;
+  }
+
+  .ia-queue-card__delete svg {
+    width: 13px;
+    height: 13px;
   }
 
   .ia-queue-card__tag {
