@@ -1,8 +1,16 @@
 {
   "name": "icon-audit",
-  "version": "0.1.0",
-  "description": "Dev-only overlay that scans a page and flags icons rendered as <img> (risky) vs inline <svg> (bundled/local), so Figma imports don't quietly ship broken-image icons.",
+  "version": "0.2.0",
+  "description": "Dev-only overlay that flags <img> icons vs inline <svg>, then helps replace them with Lucide, Font Awesome, or Iconoir via searchable catalogs and copy-paste agent prompts.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samlimby/icon-audit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/samlimby/icon-audit/issues"
+  },
+  "homepage": "https://github.com/samlimby/icon-audit#readme",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.cjs",
@@ -21,7 +29,11 @@
     }
   },
   "files": [
-    "dist",
+    "dist/*.js",
+    "dist/*.cjs",
+    "dist/*.d.ts",
+    "dist/*.d.cts",
+    "dist/generated",
     "README.md",
     "LICENSE"
   ],
@@ -41,7 +53,12 @@
     "icons",
     "devtools",
     "design-system",
-    "figma"
+    "figma",
+    "lucide",
+    "fontawesome",
+    "iconoir",
+    "agent",
+    "cursor"
   ],
   "peerDependencies": {
     "react": ">=17"
