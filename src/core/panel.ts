@@ -1,6 +1,9 @@
 import {
   CatalogIcon,
   IconLibraryId,
+  isCatalogReady,
+  preloadCatalog,
+  renderModeFor,
   searchCatalog,
   svgMarkupFor,
 } from "./icons/catalog";
@@ -72,6 +75,8 @@ export function createReplacePanel(
   let drag:
     | { pointerId: number; offsetX: number; offsetY: number }
     | null = null;
+  let lastResults: CatalogIcon[] = [];
+  let searchToken = 0;
 
   root.innerHTML = `
     <div class="ia-panel__header ia-panel__drag" data-drag>
@@ -119,6 +124,9 @@ export function createReplacePanel(
   `;
 
   shadowRoot.appendChild(root);
+
+  // Warm the default pack while the panel is idle.
+  void preloadCatalog("lucide");
 
   const tabsEl = root.querySelector("[data-tabs]") as HTMLElement;
   const libraryEl = root.querySelector("[data-library]") as HTMLElement;
@@ -245,24 +253,53 @@ export function createReplacePanel(
       .join("");
   }
 
-  function renderGrid() {
-    const results =
-      library === "custom" ? customIcons() : searchCatalog(library, query);
+  async function renderGrid() {
+    const token = ++searchToken;
     const label =
       library === "custom"
         ? browsingPack()?.name ?? "Custom"
         : libraries.find((l) => l.id === library)?.label ?? library;
 
-    metaCount.textContent = `${results.length} matches in ${label}`;
     backPacksBtn.hidden = !(library === "custom" && customMode === "browse");
     metaStyle.hidden = library === "custom";
+
+    let results: CatalogIcon[];
+    let total: number;
+
+    if (library === "custom") {
+      results = customIcons();
+      total = results.length;
+    } else {
+      const ready = isCatalogReady(library);
+      if (!ready) {
+        metaCount.textContent = `Loading ${label}…`;
+        gridEl.innerHTML = `<div class="ia-panel__empty">Loading icons…</div>`;
+      }
+      const found = await searchCatalog(library, query);
+      if (token !== searchToken) return;
+      results = found.icons;
+      total = found.total;
+      const sample = results[0];
+      metaStyle.textContent =
+        sample && renderModeFor(sample) === "fill" ? "Solid" : "Outline";
+    }
+
+    lastResults = results;
+    metaCount.textContent =
+      total > results.length
+        ? `Showing ${results.length} of ${total} in ${label}`
+        : `${total} matches in ${label}`;
 
     if (!selected || !results.some((r) => r.id === selected?.id)) {
       selected = results[0] ?? null;
     }
 
     if (results.length === 0) {
-      gridEl.innerHTML = `<div class="ia-panel__empty">No icons in this pack yet.</div>`;
+      gridEl.innerHTML = `<div class="ia-panel__empty">${
+        query.trim()
+          ? "No icons match that search."
+          : "No icons in this pack yet."
+      }</div>`;
       return;
     }
 
@@ -289,7 +326,7 @@ export function createReplacePanel(
     } else {
       hintEl.textContent =
         "Copies the agent prompt to your clipboard — paste it into Cursor, Claude Code, Codex, or any AI chat.";
-      renderGrid();
+      void renderGrid();
       searchInput.value = query;
     }
   }
@@ -330,6 +367,7 @@ export function createReplacePanel(
     } else {
       customMode = "manage";
       browsingPackId = null;
+      void preloadCatalog(library);
     }
     refresh();
   });
@@ -339,10 +377,13 @@ export function createReplacePanel(
       "[data-icon-id]"
     ) as HTMLElement | null;
     if (!btn?.dataset.iconId) return;
-    const results =
-      library === "custom" ? customIcons() : searchCatalog(library, query);
-    selected = results.find((r) => r.id === btn.dataset.iconId) ?? null;
-    renderGrid();
+    selected = lastResults.find((r) => r.id === btn.dataset.iconId) ?? null;
+    for (const cell of gridEl.querySelectorAll(".ia-icon-cell")) {
+      cell.classList.toggle(
+        "is-selected",
+        (cell as HTMLElement).dataset.iconId === selected?.id
+      );
+    }
   });
 
   packsEl.addEventListener("click", (e) => {
@@ -364,10 +405,15 @@ export function createReplacePanel(
     refresh();
   });
 
+  let searchTimer: number | null = null;
   searchInput.addEventListener("input", () => {
     query = searchInput.value;
     selected = null;
-    renderGrid();
+    if (searchTimer != null) window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      searchTimer = null;
+      void renderGrid();
+    }, 80);
   });
 
   chooseBtn.addEventListener("click", (e) => {

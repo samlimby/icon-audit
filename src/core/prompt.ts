@@ -40,14 +40,37 @@ function outerSnippet(el: Element): string {
   return html.length > 180 ? `${html.slice(0, 177)}…` : html;
 }
 
+function libraryLabel(icon: CatalogIcon): string {
+  if (icon.library === "lucide") return "Lucide";
+  if (icon.library === "fontawesome") return "Font Awesome";
+  if (icon.library === "iconoir") return "Iconoir";
+  return icon.packageName;
+}
+
+function usageHints(icon: CatalogIcon, size: number): { usage: string; imports: string[] } {
+  if (icon.library === "fontawesome") {
+    return {
+      usage: `<FontAwesomeIcon icon={${icon.exportName}} style={{ width: ${size}, height: ${size} }} aria-label="${icon.name}" />`,
+      imports: [
+        `import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";`,
+        `import { ${icon.exportName} } from "@fortawesome/free-solid-svg-icons";`,
+      ],
+    };
+  }
+  return {
+    usage: `<${icon.exportName} size={${size}} aria-label="${icon.exportName}" />`,
+    imports: [`import { ${icon.exportName} } from "${icon.packageName}";`],
+  };
+}
+
 export function buildAgentPrompt(
   scanned: ScannedElement,
   icon: CatalogIcon,
   meta: PromptTargetMeta
 ): string {
-  const usage = `<${icon.exportName} size={${meta.size}} aria-label="${icon.exportName}" />`;
+  const { usage, imports } = usageHints(icon, meta.size);
   const lines = [
-    `Replace a remote <img> icon with ${icon.library === "lucide" ? "Lucide" : icon.packageName} in this app.`,
+    `Replace a remote <img> icon with ${libraryLabel(icon)} in this app.`,
     "",
     `Package: ${icon.packageName}`,
     `Icon export: ${icon.exportName}`,
@@ -66,7 +89,8 @@ export function buildAgentPrompt(
   lines.push("");
   lines.push("Requirements:");
   lines.push("1. Remove the remote <img> (or equivalent asset import).");
-  lines.push(`2. Import { ${icon.exportName} } from "${icon.packageName}".`);
+  lines.push("2. Add these imports:");
+  for (const line of imports) lines.push(`   ${line}`);
   lines.push("3. Preserve size, accessible name, and layout.");
   lines.push("4. Do not change unrelated icons.");
 

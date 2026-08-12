@@ -59,11 +59,18 @@ audit.destroy();
   classified as an icon gets a dashed outline — green for `<svg>`, red for
   `<img>` — with an `SVG`/`IMG` badge and a hover tooltip explaining why it
   was flagged and, for `<img>` icons, whether the source is local or remote.
-- The pill toolbar that appears shows counts and has a rescan button (for
-  pages that render content after the initial scan) and a close button.
+- Click a red highlight to open the replace panel. Search Lucide, Font Awesome
+  Solid, or Iconoir (~5k icons, bundled), draft a swap in the page, then
+  **Copy** an agent prompt to paste into Cursor / Claude Code / Codex.
+- The pill toolbar shows counts and a close button.
 
 Regular images — photos, illustrations, banners — are left alone. Only
 elements that look like icons are flagged.
+
+Applying a replacement in your app still requires the matching icon package
+(`lucide-react`, `@fortawesome/react-fontawesome` +
+`@fortawesome/free-solid-svg-icons`, or `iconoir-react`) — the prompt tells
+the agent which one to import.
 
 ## How "icon" is determined
 
@@ -96,14 +103,19 @@ mountIconAudit({
 
 ```sh
 npm install
-npm run build       # tsup -> dist/
-npm test            # vitest
+npm run generate:icons   # rebuild Lucide / FA / Iconoir catalogs
+npm run build            # generate:icons + tsup -> dist/
+npm test                 # vitest
 npm run typecheck
 
 cd example
-npm install          # links the local package via file:..
-npm run dev           # try it against a real page
+npm install              # links the local package via file:..
+npm run dev              # try it against a real page
 ```
+
+Catalog JSON under `src/core/icons/generated/` is committed so consumers do not
+need the icon pack packages at install time. Those packs are only
+`devDependencies` used by `generate:icons`.
 
 ## License
 

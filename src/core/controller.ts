@@ -1,5 +1,5 @@
 import type { CatalogIcon } from "./icons/catalog";
-import { svgMarkupFor } from "./icons/catalog";
+import { preloadBuiltinCatalogs, svgMarkupFor } from "./icons/catalog";
 import { bindShortcut } from "./shortcut";
 import { isDevEnvironment } from "./env";
 import { createOverlay, DRAFT_ATTR, OverlayHandle } from "./overlay";
@@ -124,6 +124,9 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
   const styleEl = document.createElement("style");
   styleEl.textContent = STYLES;
   shadowRoot.appendChild(styleEl);
+
+  // Start Lucide download as soon as the overlay mounts so replace is snappy.
+  preloadBuiltinCatalogs();
 
   let active = false;
   let selected: ScannedElement | null = null;

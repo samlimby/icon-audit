@@ -26,6 +26,8 @@
     "LICENSE"
   ],
   "scripts": {
+    "generate:icons": "node scripts/generate-icon-catalogs.mjs",
+    "prebuild": "npm run generate:icons",
     "build": "tsup",
     "dev": "tsup --watch",
     "example": "npm run dev --prefix example",
@@ -50,12 +52,15 @@
     }
   },
   "devDependencies": {
+    "@fortawesome/free-solid-svg-icons": "^7.3.1",
     "@types/node": "^22.10.1",
     "@types/react": "^18.3.0",
+    "iconoir": "^7.12.1",
+    "jsdom": "^25.0.1",
+    "lucide": "^1.31.0",
     "react": "^18.3.0",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.5",
-    "jsdom": "^25.0.1"
+    "vitest": "^2.1.5"
   }
 }
