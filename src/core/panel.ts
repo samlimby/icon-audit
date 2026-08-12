@@ -275,13 +275,23 @@ export function createReplacePanel(
         metaCount.textContent = `Loading ${label}…`;
         gridEl.innerHTML = `<div class="ia-panel__empty">Loading icons…</div>`;
       }
-      const found = await searchCatalog(library, query);
-      if (token !== searchToken) return;
-      results = found.icons;
-      total = found.total;
-      const sample = results[0];
-      metaStyle.textContent =
-        sample && renderModeFor(sample) === "fill" ? "Solid" : "Outline";
+      try {
+        const found = await searchCatalog(library, query);
+        if (token !== searchToken) return;
+        results = found.icons;
+        total = found.total;
+        const sample = results[0];
+        metaStyle.textContent =
+          sample && renderModeFor(sample) === "fill" ? "Solid" : "Outline";
+      } catch (err) {
+        if (token !== searchToken) return;
+        console.error("[icon-audit] catalog load failed", err);
+        metaCount.textContent = `Failed to load ${label}`;
+        gridEl.innerHTML = `<div class="ia-panel__empty">Couldn’t load this icon pack. Try refreshing, or update icon-audit.</div>`;
+        lastResults = [];
+        selected = null;
+        return;
+      }
     }
 
     lastResults = results;

@@ -35,11 +35,15 @@ interface CachedCatalog {
 
 const RESULT_LIMIT = 72;
 
-/** Static so bundlers rewrite + emit the JSON next to the chunk. */
-const catalogUrls: Record<BuiltinLibrary, URL> = {
-  lucide: new URL("./generated/lucide.json", import.meta.url),
-  fontawesome: new URL("./generated/fontawesome.json", import.meta.url),
-  iconoir: new URL("./generated/iconoir.json", import.meta.url),
+/**
+ * Static dynamic imports so consumer bundlers (Next, Vite, webpack) rewrite
+ * and ship the catalogs. `fetch(new URL(...))` breaks once the package is
+ * rebundled because import.meta.url no longer points at dist/generated.
+ */
+const loaders: Record<BuiltinLibrary, () => Promise<unknown>> = {
+  lucide: () => import("./generated/lucide.json"),
+  fontawesome: () => import("./generated/fontawesome.json"),
+  iconoir: () => import("./generated/iconoir.json"),
 };
 
 const cache = new Map<BuiltinLibrary, CachedCatalog>();
@@ -84,20 +88,10 @@ function rowToIcon(
   };
 }
 
-/**
- * Fetch raw JSON catalogs. In Vite this avoids transforming a ~0.5–1MB
- * JSON blob into a JS module (the main first-open delay).
- */
 async function loadCatalogFile(
   library: BuiltinLibrary
 ): Promise<GeneratedCatalogFile> {
-  const res = await fetch(catalogUrls[library]);
-  if (!res.ok) {
-    throw new Error(
-      `icon-audit: failed to load ${library} catalog (${res.status})`
-    );
-  }
-  return asCatalogFile(await res.json());
+  return asCatalogFile(await loaders[library]());
 }
 
 async function loadCatalogRaw(library: BuiltinLibrary): Promise<CachedCatalog> {

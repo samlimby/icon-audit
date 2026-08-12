@@ -1,30 +1,5 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { searchCatalog, svgMarkupFor } from "./catalog";
-
-const generatedDir = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "generated"
-);
-
-beforeAll(() => {
-  // jsdom can't fetch module-adjacent JSON URLs; serve catalogs from disk.
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const href = String(input);
-    const library = href.includes("fontawesome")
-      ? "fontawesome"
-      : href.includes("iconoir")
-        ? "iconoir"
-        : "lucide";
-    const body = readFileSync(path.join(generatedDir, `${library}.json`), "utf8");
-    return new Response(body, {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }) as typeof fetch;
-});
 
 describe("icon catalogs", () => {
   it("searches lucide with stroke markup", async () => {
