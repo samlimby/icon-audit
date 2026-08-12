@@ -13,6 +13,10 @@ export const STYLES = /* css */ `
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
   }
 
+  button, input {
+    font: inherit;
+  }
+
   .ia-overlay-layer {
     position: fixed;
     inset: 0;
@@ -28,6 +32,7 @@ export const STYLES = /* css */ `
     border: 2px dashed var(--ia-color);
     background: color-mix(in srgb, var(--ia-color) 8%, transparent);
     pointer-events: auto;
+    cursor: pointer;
   }
 
   .ia-box--svg {
@@ -36,6 +41,23 @@ export const STYLES = /* css */ `
 
   .ia-box--img {
     --ia-color: #ef4444;
+  }
+
+  .ia-box--preview {
+    --ia-color: #a855f7;
+  }
+
+  .ia-box--selected {
+    --ia-color: #0098ff;
+    border-style: solid;
+    box-shadow: 0 0 0 3px rgba(0, 152, 255, 0.25);
+    background: rgba(0, 152, 255, 0.12);
+  }
+
+  .ia-box--preview.ia-box--selected {
+    --ia-color: #a855f7;
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.28);
+    background: rgba(168, 85, 247, 0.12);
   }
 
   .ia-badge {
@@ -90,6 +112,38 @@ export const STYLES = /* css */ `
   .ia-toolbar--top-left { left: 20px; top: 20px; }
   .ia-toolbar--top-right { right: 20px; top: 20px; }
 
+  .ia-preview-indicator {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: #18181b;
+    color: #fafafa;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 20px;
+    white-space: nowrap;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+  }
+
+  .ia-preview-indicator[hidden] {
+    display: none !important;
+  }
+
+  .ia-toolbar--top-left .ia-preview-indicator,
+  .ia-toolbar--top-right .ia-preview-indicator {
+    bottom: auto;
+    top: calc(100% + 8px);
+  }
+
+  .ia-toolbar--bottom-right .ia-preview-indicator,
+  .ia-toolbar--top-right .ia-preview-indicator {
+    left: auto;
+    right: 0;
+  }
+
   .ia-toggle {
     display: flex;
     align-items: center;
@@ -123,7 +177,7 @@ export const STYLES = /* css */ `
     display: none;
     align-items: center;
     gap: 10px;
-    padding: 8px 10px;
+    padding: 8px 10px 8px 12px;
     border-radius: 999px;
     background: #18181b;
     color: #f4f4f5;
@@ -139,30 +193,18 @@ export const STYLES = /* css */ `
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 0 4px 0 6px;
+    padding: 0 4px 0 2px;
     font-size: 12px;
     font-weight: 600;
   }
 
-  .ia-count {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-
-  .ia-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 999px;
-  }
-
-  .ia-dot--svg { background: #22c55e; }
-  .ia-dot--img { background: #ef4444; }
+  .ia-count--svg { color: #22c55e; }
+  .ia-count--img { color: #ef4444; }
 
   .ia-divider {
     width: 1px;
-    height: 20px;
-    background: rgba(255, 255, 255, 0.12);
+    height: 14px;
+    background: #3f3f46;
   }
 
   .ia-icon-btn {
@@ -173,19 +215,637 @@ export const STYLES = /* css */ `
     height: 28px;
     border-radius: 999px;
     border: none;
-    background: transparent;
-    color: #d4d4d8;
+    background: #27272a;
+    color: #a1a1aa;
     cursor: pointer;
     transition: background 120ms ease, color 120ms ease;
   }
 
-  .ia-icon-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+  .ia-icon-btn:hover,
+  .ia-icon-btn.is-active {
+    background: #3f3f46;
     color: #fff;
   }
 
   .ia-icon-btn svg {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .ia-terminal-wrap {
+    position: relative;
+  }
+
+  .ia-prompt-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #fff;
+    color: #18181b;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+  }
+
+  .ia-panel,
+  .ia-queue {
+    position: fixed;
+    z-index: 2147483002;
+    width: 360px;
+    max-height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 14px;
+    background: #18181b;
+    color: #fafafa;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+  }
+
+  .ia-panel {
+    top: 64px;
+    right: 24px;
+  }
+
+  .ia-queue {
+    left: 20px;
+    bottom: 76px;
+  }
+
+  .ia-panel[hidden],
+  .ia-queue[hidden] {
+    display: none !important;
+  }
+
+  .ia-panel__header,
+  .ia-queue__header {
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid #27272a;
+    flex-shrink: 0;
+  }
+
+  .ia-panel__title-row,
+  .ia-queue__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .ia-panel__title,
+  .ia-queue__title {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 18px;
+  }
+
+  .ia-queue__subtitle {
+    margin-top: 2px;
+    font-size: 11px;
+    color: #a1a1aa;
+    line-height: 14px;
+  }
+
+  .ia-panel__icon-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 6px;
+    background: #27272a;
+    color: #a1a1aa;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .ia-panel__icon-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .ia-panel__current {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: #27272a;
+  }
+
+  .ia-panel__current-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #3f3f46;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    color: #fafafa;
+  }
+
+  .ia-panel__current-icon svg,
+  .ia-panel__current-icon img {
+    width: 18px;
+    height: 18px;
+  }
+
+  .ia-panel__current-name {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+  }
+
+  .ia-panel__current-meta {
+    font-size: 11px;
+    color: #a1a1aa;
+    line-height: 14px;
+  }
+
+  .ia-panel__tabs,
+  .ia-queue__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px 12px 0;
+    flex-shrink: 0;
+  }
+
+  .ia-chip {
+    border: none;
+    border-radius: 999px;
+    padding: 5px 10px;
+    background: #27272a;
+    color: #a1a1aa;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 14px;
+    cursor: pointer;
+  }
+
+  .ia-chip.is-active {
+    background: #fff;
+    color: #18181b;
+    font-weight: 600;
+  }
+
+  .ia-panel__search {
+    padding: 12px 12px 8px;
+    flex-shrink: 0;
+  }
+
+  .ia-panel__search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 11px;
+    border-radius: 8px;
+    background: #27272a;
+    border: 1px solid #3f3f46;
+    color: #71717a;
+  }
+
+  .ia-panel__search-box svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  .ia-panel__search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #fafafa;
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  .ia-panel__meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #71717a;
+    flex-shrink: 0;
+  }
+
+  .ia-panel__meta-link {
+    border: none;
+    background: transparent;
+    color: #fafafa;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 14px;
+    cursor: pointer;
+    padding: 0;
+    margin-left: auto;
+  }
+
+  .ia-panel__library {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .ia-panel__library[hidden],
+  .ia-panel__custom[hidden],
+  .ia-panel__actions[hidden],
+  .ia-panel__meta-link[hidden] {
+    display: none !important;
+  }
+
+  .ia-panel__custom {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .ia-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin: 12px;
+    padding: 28px 16px;
+    border-radius: 12px;
+    border: 1.5px dashed #52525b;
+    background: #27272a;
+    cursor: pointer;
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  .ia-dropzone.is-dragging {
+    border-color: #0098ff;
+    background: #1f2937;
+  }
+
+  .ia-dropzone__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: #3f3f46;
+    color: #fafafa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ia-dropzone__icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .ia-dropzone__title {
+    color: #fafafa;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 18px;
+  }
+
+  .ia-dropzone__sub {
+    color: #a1a1aa;
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  .ia-dropzone__btn {
+    border: none;
+    border-radius: 8px;
+    background: #fff;
+    color: #18181b;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 14px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+
+  .ia-packs {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 12px;
+    overflow: auto;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .ia-packs__label {
+    color: #71717a;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 14px;
+  }
+
+  .ia-packs__empty {
+    color: #a1a1aa;
+    font-size: 11px;
+    line-height: 16px;
+    padding: 8px 2px 12px;
+  }
+
+  .ia-pack-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: #27272a;
+    border: 1px solid #3f3f46;
+  }
+
+  .ia-pack-row__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #3f3f46;
+    color: #fafafa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .ia-pack-row__icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .ia-pack-row__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ia-pack-row__title {
+    color: #fafafa;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+  }
+
+  .ia-pack-row__meta {
+    margin-top: 2px;
+    color: #a1a1aa;
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .ia-pack-row__browse {
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+  }
+
+  .ia-panel__grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 12px;
+    overflow: auto;
+    flex: 1;
+    align-content: flex-start;
+  }
+
+  .ia-icon-cell {
+    width: calc(25% - 5px);
+    min-width: 74px;
+    height: 74px;
+    border-radius: 10px;
+    border: 1.5px solid transparent;
+    background: #27272a;
+    color: #fafafa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .ia-icon-cell span {
+    font-size: 9px;
+    font-weight: 500;
+    color: #a1a1aa;
+    line-height: 12px;
+  }
+
+  .ia-icon-cell.is-selected {
+    border-color: #0098ff;
+  }
+
+  .ia-icon-cell svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .ia-panel__empty {
+    width: 100%;
+    padding: 24px 12px;
+    text-align: center;
+    color: #a1a1aa;
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  .ia-panel__footer,
+  .ia-queue__footer {
+    padding: 12px 16px 16px;
+    border-top: 1px solid #27272a;
+    flex-shrink: 0;
+  }
+
+  .ia-panel__actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ia-panel__actions .ia-btn {
+    flex: 1;
+    min-width: 0;
+    padding: 0 8px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .ia-btn {
+    flex: 1;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid #3f3f46;
+    background: transparent;
+    color: #e4e4e7;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .ia-btn--primary {
+    border: none;
+    background: #fff;
+    color: #18181b;
+    font-weight: 600;
+  }
+
+  .ia-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .ia-panel__hint {
+    margin-top: 10px;
+    font-size: 10px;
+    color: #71717a;
+    line-height: 14px;
+  }
+
+  .ia-panel__actions[hidden] + .ia-panel__hint {
+    margin-top: 0;
+  }
+
+  .ia-queue__list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    overflow: auto;
+    flex: 1;
+  }
+
+  .ia-queue-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 10px;
+    background: #27272a;
+    border: 1.5px solid transparent;
+    cursor: pointer;
+  }
+
+  .ia-queue-card.is-selected {
+    border-color: #0098ff;
+  }
+
+  .ia-queue-card__row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .ia-queue-card__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #3f3f46;
+    color: #fafafa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .ia-queue-card__icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .ia-queue-card__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ia-queue-card__title {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+  }
+
+  .ia-queue-card__meta {
+    margin-top: 3px;
+    font-size: 11px;
+    color: #a1a1aa;
+    line-height: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ia-queue-card__tag {
+    flex-shrink: 0;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 12px;
+  }
+
+  .ia-queue-card__tag--draft {
+    background: #3f3f46;
+    border: 1px solid #52525b;
+    color: #e4e4e7;
+  }
+
+  .ia-queue-card__tag--sent {
+    background: #14532d;
+    color: #86efac;
+  }
+
+  .ia-queue-card__preview {
+    padding: 10px;
+    border-radius: 8px;
+    background: #09090b;
+    border: 1px solid #3f3f46;
+  }
+
+  .ia-queue-card__preview-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #a1a1aa;
+    line-height: 12px;
+    margin-bottom: 6px;
+  }
+
+  .ia-queue-card__preview pre {
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    line-height: 15px;
+    color: #d4d4d8;
+  }
+
+  .ia-queue-card__actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ia-queue-card__actions .ia-btn {
+    height: 30px;
+    font-size: 11px;
   }
 `;

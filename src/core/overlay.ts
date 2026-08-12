@@ -1,12 +1,29 @@
 import { ScannedElement } from "./types";
 
+export const PREVIEW_ATTR = "data-ia-preview";
+
+export interface OverlayCallbacks {
+  onSelect: (item: ScannedElement) => void;
+}
+
 export interface OverlayHandle {
   update: (scanned: ScannedElement[]) => void;
   clear: () => void;
+  setSelected: (element: Element | null) => void;
   destroy: () => void;
 }
 
+function isPreviewed(element: Element): boolean {
+  return Boolean(
+    element.closest(`[${PREVIEW_ATTR}]`) || element.hasAttribute(PREVIEW_ATTR)
+  );
+}
+
 function describe(item: ScannedElement): string {
+  if (isPreviewed(item.element)) {
+    return "Live preview swap — not persisted to source yet";
+  }
+
   const parts: string[] = [item.tag === "svg" ? "Inline SVG" : "<img> tag"];
 
   if (item.sourceKind === "remote") {
@@ -23,13 +40,17 @@ function describe(item: ScannedElement): string {
 }
 
 /** Creates the highlight-box layer inside `shadowRoot` and keeps it in sync with `update()`. */
-export function createOverlay(shadowRoot: ShadowRoot): OverlayHandle {
+export function createOverlay(
+  shadowRoot: ShadowRoot,
+  callbacks?: OverlayCallbacks
+): OverlayHandle {
   const container = document.createElement("div");
   container.className = "ia-overlay-layer";
   shadowRoot.appendChild(container);
 
   const boxes = new Map<Element, HTMLDivElement>();
   let scanned: ScannedElement[] = [];
+  let selected: Element | null = null;
   let rafId: number | null = null;
 
   function syncBoxes() {
@@ -42,23 +63,39 @@ export function createOverlay(shadowRoot: ShadowRoot): OverlayHandle {
     }
 
     for (const item of scanned) {
+      const preview = isPreviewed(item.element);
       let box = boxes.get(item.element);
       if (!box) {
         box = document.createElement("div");
-        box.className = `ia-box ia-box--${item.tag}`;
 
         const badge = document.createElement("span");
         badge.className = "ia-badge";
-        badge.textContent = item.tag.toUpperCase();
         box.appendChild(badge);
 
         const tooltip = document.createElement("div");
         tooltip.className = "ia-tooltip";
-        tooltip.textContent = describe(item);
         box.appendChild(tooltip);
+
+        box.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          callbacks?.onSelect(item);
+        });
 
         container.appendChild(box);
         boxes.set(item.element, box);
+      }
+
+      box.className = `ia-box ia-box--${preview ? "preview" : item.tag}`;
+      box.classList.toggle("ia-box--selected", item.element === selected);
+
+      const badge = box.querySelector(".ia-badge");
+      if (badge) {
+        badge.textContent = preview ? "Preview" : item.tag.toUpperCase();
+      }
+      const tooltip = box.querySelector(".ia-tooltip");
+      if (tooltip) {
+        tooltip.textContent = describe(item);
       }
     }
   }
@@ -69,8 +106,8 @@ export function createOverlay(shadowRoot: ShadowRoot): OverlayHandle {
       if (!box) continue;
       const rect = item.element.getBoundingClientRect();
       box.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
-      box.style.width = `${rect.width}px`;
-      box.style.height = `${rect.height}px`;
+      box.style.width = `${Math.max(rect.width, 18)}px`;
+      box.style.height = `${Math.max(rect.height, 18)}px`;
     }
   }
 
@@ -81,6 +118,9 @@ export function createOverlay(shadowRoot: ShadowRoot): OverlayHandle {
 
   function update(next: ScannedElement[]) {
     scanned = next;
+    if (selected && !scanned.some((s) => s.element === selected)) {
+      selected = null;
+    }
     syncBoxes();
     positionBoxes();
     if (rafId === null && scanned.length > 0) {
@@ -92,7 +132,13 @@ export function createOverlay(shadowRoot: ShadowRoot): OverlayHandle {
     }
   }
 
+  function setSelected(element: Element | null) {
+    selected = element;
+    syncBoxes();
+  }
+
   function clear() {
+    selected = null;
     update([]);
   }
 
@@ -101,5 +147,5 @@ export function createOverlay(shadowRoot: ShadowRoot): OverlayHandle {
     container.remove();
   }
 
-  return { update, clear, destroy };
+  return { update, clear, setSelected, destroy };
 }

@@ -6,15 +6,21 @@ const ICON_REFRESH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 
 const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
 
+const ICON_TERMINAL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3"/><path d="M12 15h5"/></svg>`;
+
 export interface ToolbarCallbacks {
   onOpen: () => void;
   onRescan: () => void;
   onClose: () => void;
+  onToggleQueue: () => void;
 }
 
 export interface ToolbarHandle {
   setCounts: (svgCount: number, imgCount: number) => void;
+  setPromptBadge: (draftCount: number) => void;
   setActive: (active: boolean) => void;
+  setQueueOpen: (open: boolean) => void;
+  setPreviewCount: (count: number) => void;
   destroy: () => void;
 }
 
@@ -26,6 +32,14 @@ export function createToolbar(
   const root = document.createElement("div");
   root.className = `ia-toolbar ia-toolbar--${position}`;
   root.dataset.active = "false";
+
+  let previewCount = 0;
+  let queueOpen = false;
+
+  const previewIndicator = document.createElement("div");
+  previewIndicator.className = "ia-preview-indicator";
+  previewIndicator.hidden = true;
+  previewIndicator.setAttribute("aria-live", "polite");
 
   const toggle = document.createElement("button");
   toggle.type = "button";
@@ -41,17 +55,34 @@ export function createToolbar(
   counts.className = "ia-counts";
 
   const svgCount = document.createElement("span");
-  svgCount.className = "ia-count";
-  svgCount.innerHTML = `<span class="ia-dot ia-dot--svg"></span><span data-count-svg>0</span> svg`;
+  svgCount.className = "ia-count ia-count--svg";
+  svgCount.innerHTML = `<span data-count-svg>0</span>&nbsp;SVG`;
+
+  const dividerCounts = document.createElement("div");
+  dividerCounts.className = "ia-divider";
 
   const imgCount = document.createElement("span");
-  imgCount.className = "ia-count";
-  imgCount.innerHTML = `<span class="ia-dot ia-dot--img"></span><span data-count-img>0</span> img`;
+  imgCount.className = "ia-count ia-count--img";
+  imgCount.innerHTML = `<span data-count-img>0</span>&nbsp;IMG`;
 
-  counts.append(svgCount, imgCount);
+  counts.append(svgCount, dividerCounts, imgCount);
 
-  const divider1 = document.createElement("div");
-  divider1.className = "ia-divider";
+  const terminalWrap = document.createElement("div");
+  terminalWrap.className = "ia-terminal-wrap";
+
+  const terminalBtn = document.createElement("button");
+  terminalBtn.type = "button";
+  terminalBtn.className = "ia-icon-btn ia-terminal-btn";
+  terminalBtn.title = "Agent prompts";
+  terminalBtn.innerHTML = ICON_TERMINAL;
+  terminalBtn.addEventListener("click", callbacks.onToggleQueue);
+
+  const badge = document.createElement("span");
+  badge.className = "ia-prompt-badge";
+  badge.hidden = true;
+  badge.textContent = "0";
+
+  terminalWrap.append(terminalBtn, badge);
 
   const rescanBtn = document.createElement("button");
   rescanBtn.type = "button";
@@ -60,9 +91,6 @@ export function createToolbar(
   rescanBtn.innerHTML = ICON_REFRESH;
   rescanBtn.addEventListener("click", callbacks.onRescan);
 
-  const divider2 = document.createElement("div");
-  divider2.className = "ia-divider";
-
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
   closeBtn.className = "ia-icon-btn";
@@ -70,9 +98,18 @@ export function createToolbar(
   closeBtn.innerHTML = ICON_CLOSE;
   closeBtn.addEventListener("click", callbacks.onClose);
 
-  pill.append(counts, divider1, rescanBtn, divider2, closeBtn);
-  root.append(toggle, pill);
+  pill.append(counts, terminalWrap, rescanBtn, closeBtn);
+  root.append(previewIndicator, toggle, pill);
   shadowRoot.appendChild(root);
+
+  function syncPreviewIndicator() {
+    const show = previewCount > 0 && !queueOpen && root.dataset.active === "true";
+    previewIndicator.hidden = !show;
+    if (!show) return;
+    previewIndicator.textContent = `${previewCount} Icon${
+      previewCount === 1 ? "" : "s"
+    } Previewed`;
+  }
 
   function setCounts(svg: number, img: number) {
     const svgEl = svgCount.querySelector("[data-count-svg]");
@@ -81,16 +118,45 @@ export function createToolbar(
     if (imgEl) imgEl.textContent = String(img);
   }
 
+  function setPromptBadge(draftCount: number) {
+    if (draftCount <= 0) {
+      badge.hidden = true;
+      return;
+    }
+    badge.hidden = false;
+    badge.textContent = String(draftCount);
+  }
+
   function setActive(active: boolean) {
     root.dataset.active = active ? "true" : "false";
+    syncPreviewIndicator();
+  }
+
+  function setQueueOpen(open: boolean) {
+    queueOpen = open;
+    terminalBtn.classList.toggle("is-active", open);
+    syncPreviewIndicator();
+  }
+
+  function setPreviewCount(count: number) {
+    previewCount = Math.max(0, count);
+    syncPreviewIndicator();
   }
 
   function destroy() {
     toggle.removeEventListener("click", callbacks.onOpen);
     rescanBtn.removeEventListener("click", callbacks.onRescan);
     closeBtn.removeEventListener("click", callbacks.onClose);
+    terminalBtn.removeEventListener("click", callbacks.onToggleQueue);
     root.remove();
   }
 
-  return { setCounts, setActive, destroy };
+  return {
+    setCounts,
+    setPromptBadge,
+    setActive,
+    setQueueOpen,
+    setPreviewCount,
+    destroy,
+  };
 }
