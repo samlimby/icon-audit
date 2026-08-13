@@ -520,7 +520,7 @@ export const STYLES = /* css */ `
     border-radius: 12px;
     border: 1.5px dashed #52525b;
     background: #27272a;
-    cursor: pointer;
+    cursor: default;
     flex-shrink: 0;
     text-align: center;
   }
@@ -551,12 +551,6 @@ export const STYLES = /* css */ `
     font-size: 13px;
     font-weight: 600;
     line-height: 18px;
-  }
-
-  .ia-dropzone__sub {
-    color: #a1a1aa;
-    font-size: 11px;
-    line-height: 16px;
   }
 
   .ia-dropzone__btn {

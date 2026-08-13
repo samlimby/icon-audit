@@ -107,7 +107,6 @@ export function createReplacePanel(
         <input type="file" data-folder-input multiple hidden />
         <div class="ia-dropzone__icon" aria-hidden>${ICON_UPLOAD}</div>
         <div class="ia-dropzone__title">Upload icon pack</div>
-        <div class="ia-dropzone__sub">SVG files, folders (nested OK), or sprite sheets</div>
         <div class="ia-dropzone__actions">
           <button type="button" class="ia-dropzone__btn" data-choose>Choose files</button>
           <button type="button" class="ia-dropzone__btn ia-dropzone__btn--ghost" data-choose-folder>Choose folder</button>
@@ -442,19 +441,21 @@ export function createReplacePanel(
   });
 
   chooseBtn.addEventListener("click", (e) => {
+    e.preventDefault();
     e.stopPropagation();
     fileInput.click();
   });
 
   chooseFolderBtn.addEventListener("click", (e) => {
+    e.preventDefault();
     e.stopPropagation();
     folderInput.click();
   });
 
+  // Don't open a picker on bare dropzone clicks — that stacked a file dialog
+  // on top of "Choose folder" and forced a cancel-then-retry. Drag-drop still works.
   dropzone.addEventListener("click", (e) => {
-    if ((e.target as HTMLElement).closest("[data-choose], [data-choose-folder]"))
-      return;
-    fileInput.click();
+    e.preventDefault();
   });
 
   fileInput.addEventListener("change", () => {
