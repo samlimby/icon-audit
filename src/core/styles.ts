@@ -844,42 +844,43 @@ export const STYLES = /* css */ `
   .ia-queue-card__trailing {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 6px;
     flex-shrink: 0;
+    min-width: 54px;
   }
 
   .ia-queue-card__delete {
-    width: 24px;
-    height: 24px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: #a1a1aa;
-    display: inline-flex;
+    display: none;
     align-items: center;
     justify-content: center;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    background: #ef444429;
+    color: #ef4444;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
     cursor: pointer;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+    white-space: nowrap;
   }
 
   .ia-queue-card:hover .ia-queue-card__delete,
   .ia-queue-card.is-selected .ia-queue-card__delete,
   .ia-queue-card__delete:focus-visible {
-    opacity: 1;
-    pointer-events: auto;
+    display: inline-flex;
+  }
+
+  .ia-queue-card:hover .ia-queue-card__tag--draft,
+  .ia-queue-card.is-selected .ia-queue-card__tag--draft {
+    display: none;
   }
 
   .ia-queue-card__delete:hover,
   .ia-queue-card__delete:focus-visible {
-    background: #3f3f46;
-    color: #fafafa;
-  }
-
-  .ia-queue-card__delete svg {
-    width: 13px;
-    height: 13px;
+    background: #ef444440;
   }
 
   .ia-queue-card__tag {

@@ -1,5 +1,6 @@
 import type { CatalogIcon } from "./icons/catalog";
 import { preloadBuiltinCatalogs, svgMarkupFor } from "./icons/catalog";
+import { stampOrigin } from "./dom-context";
 import { bindShortcut } from "./shortcut";
 import { isDevEnvironment } from "./env";
 import { createOverlay, DRAFT_ATTR, OverlayHandle } from "./overlay";
@@ -148,7 +149,11 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
     if (!selected) return null;
     const rect = selected.element.getBoundingClientRect();
     const size = Math.max(14, Math.round(Math.max(rect.width, rect.height) || 18));
-    const fiber = readFiberMeta(selected.element);
+    // Fiber often lives on the replaced host; walk up from drafts.
+    const fiberHost =
+      selected.element.closest(`[${DRAFT_ATTR}]`)?.parentElement ||
+      selected.element;
+    const fiber = readFiberMeta(fiberHost) || readFiberMeta(selected.element);
     const prompt = createQueuedPrompt(selected, icon, {
       size,
       fileHint: fiber.fileHint,
@@ -186,19 +191,25 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
       overlay.setSelected(null);
       replacePanel.close();
     },
-    onCopyPrompt(icon) {
-      const prompt = enqueueFromIcon(icon);
-      if (!prompt) return false;
-      queuePanel.open();
-      toolbar.setQueueOpen(true);
-      return copyText(prompt.markdown);
-    },
     onSelectIcon(icon) {
-      if (!selected) return;
+      if (!selected) return false;
+      // Queue prompt while we still have the original scanned target.
+      const prompt = enqueueFromIcon(icon);
+      if (prompt) {
+        void copyText(prompt.markdown);
+        queuePanel.open();
+        toolbar.setQueueOpen(true);
+      }
+
       const rect = selected.element.getBoundingClientRect();
       const size = Math.max(14, Math.round(Math.max(rect.width, rect.height) || 18));
       const wrap = document.createElement("span");
       wrap.setAttribute(DRAFT_ATTR, "true");
+      stampOrigin(wrap, {
+        html: selected.snapshotHtml,
+        src: selected.src,
+        tag: selected.tag,
+      });
       wrap.style.display = "inline-flex";
       wrap.style.color = "currentColor";
       wrap.innerHTML = svgMarkupFor(icon, size);
@@ -209,6 +220,7 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
       overlay.setSelected(null);
       replacePanel.close();
       runScan();
+      return Boolean(prompt);
     },
   });
 

@@ -14,7 +14,6 @@ import {
   loadCustomPacks,
   saveCustomPacks,
 } from "./icons/custom-packs";
-import { flashCopied } from "./flash-copied";
 import type { ScannedElement } from "./types";
 
 const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
@@ -25,8 +24,8 @@ const ICON_TRAY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 
 export interface ReplacePanelCallbacks {
   onClose: () => void;
-  onCopyPrompt: (icon: CatalogIcon) => void | boolean | Promise<boolean | void>;
-  onSelectIcon: (icon: CatalogIcon) => void;
+  /** Apply draft on the page and enqueue the agent prompt. */
+  onSelectIcon: (icon: CatalogIcon) => void | boolean | Promise<boolean | void>;
 }
 
 export interface ReplacePanelHandle {
@@ -116,10 +115,9 @@ export function createReplacePanel(
     </div>
     <div class="ia-panel__footer" data-footer>
       <div class="ia-panel__actions" data-actions>
-        <button type="button" class="ia-btn ia-btn--ghost" data-select>Select</button>
-        <button type="button" class="ia-btn ia-btn--primary" data-copy>Copy</button>
+        <button type="button" class="ia-btn ia-btn--primary" data-select>Select</button>
       </div>
-      <div class="ia-panel__hint" data-hint>Copies the agent prompt to your clipboard — paste it into Cursor, Claude Code, Codex, or any AI chat.</div>
+      <div class="ia-panel__hint" data-hint>Adds a page draft and queues the agent prompt — open the queue to copy it into Cursor, Claude Code, Codex, or any AI chat.</div>
     </div>
   `;
 
@@ -144,7 +142,6 @@ export function createReplacePanel(
   const hintEl = root.querySelector("[data-hint]") as HTMLElement;
   const closeBtn = root.querySelector("[data-close]") as HTMLButtonElement;
   const selectBtn = root.querySelector("[data-select]") as HTMLButtonElement;
-  const copyBtn = root.querySelector("[data-copy]") as HTMLButtonElement;
   const chooseBtn = root.querySelector("[data-choose]") as HTMLButtonElement;
   const dragHandle = root.querySelector("[data-drag]") as HTMLElement;
 
@@ -335,7 +332,7 @@ export function createReplacePanel(
       renderPacks();
     } else {
       hintEl.textContent =
-        "Copies the agent prompt to your clipboard — paste it into Cursor, Claude Code, Codex, or any AI chat.";
+        "Adds a page draft and queues the agent prompt — open the queue to copy it into Cursor, Claude Code, Codex, or any AI chat.";
       void renderGrid();
       searchInput.value = query;
     }
@@ -498,14 +495,8 @@ export function createReplacePanel(
 
   closeBtn.addEventListener("click", () => callbacks.onClose());
   selectBtn.addEventListener("click", () => {
-    if (selected) callbacks.onSelectIcon(selected);
-  });
-  copyBtn.addEventListener("click", () => {
     if (!selected) return;
-    void Promise.resolve(callbacks.onCopyPrompt(selected)).then((ok) => {
-      if (ok === false) return;
-      flashCopied(copyBtn, "Copy");
-    });
+    void Promise.resolve(callbacks.onSelectIcon(selected));
   });
 
   function open(scanned: ScannedElement) {

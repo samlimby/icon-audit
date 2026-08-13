@@ -60,17 +60,17 @@ audit.destroy();
   `<img>` — with an `SVG`/`IMG` badge and a hover tooltip explaining why it
   was flagged and, for `<img>` icons, whether the source is local or remote.
 - Click a red highlight to open the replace panel. Search Lucide, Font Awesome
-  Solid, or Iconoir (~5k icons, bundled), draft a swap in the page, then
-  **Copy** an agent prompt to paste into Cursor / Claude Code / Codex.
+  Solid, or Iconoir (~5k icons, bundled), then **Select** to draft the swap on
+  the page and queue an agent prompt (also copied to the clipboard) for Cursor /
+  Claude Code / Codex.
 - The pill toolbar shows counts and a close button.
 
 Regular images — photos, illustrations, banners — are left alone. Only
 elements that look like icons are flagged.
 
-Applying a replacement in your app still requires the matching icon package
-(`lucide-react`, `@fortawesome/react-fontawesome` +
-`@fortawesome/free-solid-svg-icons`, or `iconoir-react`) — the prompt tells
-the agent which one to import.
+Applying a replacement writes **inline SVG** into your source via the agent
+prompt — no `lucide-react` / Font Awesome / Iconoir packages are required in
+the target app. Catalogs are only used inside the icon-audit picker.
 
 ## How "icon" is determined
 

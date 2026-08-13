@@ -1,4 +1,6 @@
 import type { CatalogIcon } from "./icons/catalog";
+import { svgMarkupFor } from "./icons/catalog";
+import type { DomLocator } from "./dom-context";
 import type { ScannedElement } from "./types";
 
 export type PromptStatus = "draft" | "sent";
@@ -34,33 +36,31 @@ function basenameFromSrc(src: string | null): string {
   }
 }
 
-function outerSnippet(el: Element): string {
-  const clone = el.cloneNode(false) as Element;
-  const html = clone.outerHTML;
-  return html.length > 180 ? `${html.slice(0, 177)}…` : html;
-}
-
 function libraryLabel(icon: CatalogIcon): string {
   if (icon.library === "lucide") return "Lucide";
   if (icon.library === "fontawesome") return "Font Awesome";
   if (icon.library === "iconoir") return "Iconoir";
+  if (icon.library === "custom") return "a custom pack";
   return icon.packageName;
 }
 
-function usageHints(icon: CatalogIcon, size: number): { usage: string; imports: string[] } {
-  if (icon.library === "fontawesome") {
-    return {
-      usage: `<FontAwesomeIcon icon={${icon.exportName}} style={{ width: ${size}, height: ${size} }} aria-label="${icon.name}" />`,
-      imports: [
-        `import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";`,
-        `import { ${icon.exportName} } from "@fortawesome/free-solid-svg-icons";`,
-      ],
-    };
+function formatLocatorLines(locator: DomLocator): string[] {
+  const lines = [
+    `- Parent chain (outer → inner): ${locator.parentChain}`,
+  ];
+  if (locator.searchTokens.length > 0) {
+    lines.push(
+      `- Search the repo for these identifiers: ${locator.searchTokens
+        .map((t) => `\`${t}\``)
+        .join(", ")}`
+    );
   }
-  return {
-    usage: `<${icon.exportName} size={${size}} aria-label="${icon.exportName}" />`,
-    imports: [`import { ${icon.exportName} } from "${icon.packageName}";`],
-  };
+  if (locator.id) lines.push(`- Element id: #${locator.id}`);
+  if (locator.className) lines.push(`- Element class: ${locator.className}`);
+  if (locator.alt) lines.push(`- alt: ${locator.alt}`);
+  if (locator.ariaLabel) lines.push(`- aria-label: ${locator.ariaLabel}`);
+  if (locator.src) lines.push(`- src: ${locator.src}`);
+  return lines;
 }
 
 export function buildAgentPrompt(
@@ -68,31 +68,45 @@ export function buildAgentPrompt(
   icon: CatalogIcon,
   meta: PromptTargetMeta
 ): string {
-  const { usage, imports } = usageHints(icon, meta.size);
+  const rawSvg = svgMarkupFor(icon, meta.size);
+  const accessibleName =
+    scanned.locator.alt ||
+    scanned.locator.ariaLabel ||
+    icon.exportName;
+
   const lines = [
-    `Replace a remote <img> icon with ${libraryLabel(icon)} in this app.`,
+    `Replace an <img>/icon in this app with inline SVG from ${libraryLabel(icon)} (${icon.exportName}).`,
     "",
-    `Package: ${icon.packageName}`,
-    `Icon export: ${icon.exportName}`,
-    `Suggested usage: ${usage}`,
+    "Do NOT install npm icon packages (lucide-react, fontawesome, iconoir-react, etc.).",
+    "Paste the raw SVG markup below directly into the component/JSX.",
     "",
     "Locate current usage using:",
   ];
 
   if (meta.fileHint) lines.push(`- File (best effort): ${meta.fileHint}`);
-  lines.push(`- DOM: ${outerSnippet(scanned.element)}`);
+  if (meta.componentName) lines.push(`- React component: ${meta.componentName}`);
+  lines.push(`- Original DOM snapshot: ${scanned.snapshotHtml}`);
+  lines.push(...formatLocatorLines(scanned.locator));
   if (meta.nearbyText) lines.push(`- Nearby UI text: ${meta.nearbyText}`);
-  if (meta.componentName) lines.push(`- Component: ${meta.componentName}`);
   lines.push(
     `- Classification: ${scanned.tag.toUpperCase()} · ${scanned.sourceKind ?? "unknown"} · flagged by icon-audit`
   );
   lines.push("");
   lines.push("Requirements:");
-  lines.push("1. Remove the remote <img> (or equivalent asset import).");
-  lines.push("2. Add these imports:");
-  for (const line of imports) lines.push(`   ${line}`);
-  lines.push("3. Preserve size, accessible name, and layout.");
-  lines.push("4. Do not change unrelated icons.");
+  lines.push(
+    "1. Find the icon in source via the parent chain / identifiers above — do not search for data-ia-draft."
+  );
+  lines.push("2. Remove the remote <img> (or equivalent asset import).");
+  lines.push(
+    `3. Replace it with this inline SVG (keep ~${meta.size}px size; accessible name: "${accessibleName}"):`
+  );
+  lines.push("```svg");
+  lines.push(rawSvg);
+  lines.push("```");
+  lines.push(
+    "4. If the file is React/JSX, you may inline the SVG element as JSX (same attributes/paths) — still no new icon package deps."
+  );
+  lines.push("5. Preserve layout and do not change unrelated icons.");
 
   return lines.join("\n");
 }
@@ -112,7 +126,12 @@ export function createQueuedPrompt(
     exportName: icon.exportName,
     markdown: buildAgentPrompt(scanned, icon, meta),
     sourceLabel: sourceName,
-    locationHint: meta.fileHint ?? meta.nearbyText ?? scanned.src ?? "unknown",
+    locationHint:
+      meta.fileHint ??
+      scanned.locator.parentChain ??
+      meta.nearbyText ??
+      scanned.src ??
+      "unknown",
   };
 }
 

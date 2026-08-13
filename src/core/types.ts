@@ -1,3 +1,5 @@
+import type { DomLocator } from "./dom-context";
+
 export type ElementTag = "svg" | "img";
 
 export type SourceKind = "local" | "remote" | "data-uri" | "inline";
@@ -58,6 +60,10 @@ export interface ScannedElement {
   reasons: ClassificationReason[];
   sourceKind: SourceKind | null;
   src: string | null;
+  /** Shallow outerHTML captured at scan time (survives draft swaps via origin attrs). */
+  snapshotHtml: string;
+  /** Parent chain + id/class/alt tokens for agent location. */
+  locator: DomLocator;
 }
 
 export interface IconAuditOptions extends Partial<ClassifyOptions> {

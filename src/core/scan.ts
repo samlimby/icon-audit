@@ -1,5 +1,10 @@
 import { classifyIcon, determineSourceKind } from "./classify";
 import {
+  captureLocator,
+  captureSnapshotHtml,
+  readOriginSnapshot,
+} from "./dom-context";
+import {
   ClassifyOptions,
   DEFAULT_CLASSIFY_OPTIONS,
   ElementNamingInput,
@@ -48,6 +53,7 @@ export function scanPage(
 
   candidates.forEach((el) => {
     const tag = el.tagName.toLowerCase() as ElementTag;
+    if (tag !== "img" && tag !== "svg") return;
     if (!isRendered(el)) return;
 
     const rect = el.getBoundingClientRect();
@@ -57,13 +63,28 @@ export function scanPage(
     const { isIcon, reasons } = classifyIcon({ rect, naming }, opts);
     if (!isIcon) return;
 
-    const src = naming.src ?? null;
+    const origin = readOriginSnapshot(el);
+    const src = origin.src ?? naming.src ?? null;
+    const snapshotHtml = origin.html ?? captureSnapshotHtml(el);
+    const locator = captureLocator(el);
+    if (origin.src) {
+      const base = origin.src.split("/").pop()?.split("?")[0];
+      if (base) {
+        locator.searchTokens = [...new Set([base, ...locator.searchTokens])];
+      }
+    }
+
     results.push({
       element: el,
       tag,
       reasons,
       src,
-      sourceKind: tag === "svg" ? "inline" : determineSourceKind(src),
+      sourceKind:
+        tag === "svg" && !origin.html
+          ? "inline"
+          : determineSourceKind(src),
+      snapshotHtml,
+      locator,
     });
   });
 
