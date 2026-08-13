@@ -50,7 +50,6 @@ export function createQueuePanel(
       <div class="ia-panel__actions">
         <button type="button" class="ia-btn ia-btn--primary" data-copy-all>Copy all drafts</button>
       </div>
-      <div class="ia-panel__hint">Copies the agent prompt to your clipboard — paste it into your AI tool.</div>
     </div>
   `;
 
@@ -58,10 +57,18 @@ export function createQueuePanel(
 
   const listEl = root.querySelector("[data-list]") as HTMLElement;
   const filtersEl = root.querySelector("[data-filters]") as HTMLElement;
+  const copyAllBtn = root.querySelector(
+    "[data-copy-all]"
+  ) as HTMLButtonElement;
 
   function filtered(): QueuedPrompt[] {
     if (filter === "all") return prompts;
     return prompts.filter((p) => p.status === filter);
+  }
+
+  function syncCopyAllState() {
+    const hasDrafts = prompts.some((p) => p.status === "draft");
+    copyAllBtn.disabled = !hasDrafts;
   }
 
   function renderFilters() {
@@ -77,7 +84,7 @@ export function createQueuePanel(
   function renderList() {
     const items = filtered();
     if (items.length === 0) {
-      listEl.innerHTML = `<div class="ia-panel__empty">No prompts yet. Copy an agent prompt from Replace icon.</div>`;
+      listEl.innerHTML = `<div class="ia-panel__empty">No prompts yet. Select an icon from Replace icon to queue a draft.</div>`;
       return;
     }
 
@@ -120,6 +127,7 @@ export function createQueuePanel(
   function refresh() {
     renderFilters();
     renderList();
+    syncCopyAllState();
   }
 
   filtersEl.addEventListener("click", (e) => {
@@ -159,6 +167,7 @@ export function createQueuePanel(
     callbacks.onClose();
   });
   root.querySelector("[data-copy-all]")?.addEventListener("click", (e) => {
+    if (copyAllBtn.disabled) return;
     const btn = (e.currentTarget || e.target) as HTMLElement;
     void Promise.resolve(callbacks.onCopyAllDrafts()).then((ok) => {
       if (ok === false) return;

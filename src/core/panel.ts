@@ -9,6 +9,7 @@ import {
 } from "./icons/catalog";
 import {
   createPackFromFiles,
+  collectFilesFromDataTransfer,
   CustomPack,
   formatPackMeta,
   loadCustomPacks,
@@ -103,10 +104,14 @@ export function createReplacePanel(
     <div class="ia-panel__custom" data-custom hidden>
       <div class="ia-dropzone" data-dropzone>
         <input type="file" data-file-input accept=".svg,image/svg+xml" multiple hidden />
+        <input type="file" data-folder-input multiple hidden />
         <div class="ia-dropzone__icon" aria-hidden>${ICON_UPLOAD}</div>
         <div class="ia-dropzone__title">Upload icon pack</div>
-        <div class="ia-dropzone__sub">SVG files, ZIP, or sprite sheet</div>
-        <button type="button" class="ia-dropzone__btn" data-choose>Choose files</button>
+        <div class="ia-dropzone__sub">SVG files, folders (nested OK), or sprite sheets</div>
+        <div class="ia-dropzone__actions">
+          <button type="button" class="ia-dropzone__btn" data-choose>Choose files</button>
+          <button type="button" class="ia-dropzone__btn ia-dropzone__btn--ghost" data-choose-folder>Choose folder</button>
+        </div>
       </div>
       <div class="ia-packs">
         <div class="ia-packs__label">Installed packs</div>
@@ -133,6 +138,12 @@ export function createReplacePanel(
   const packsEl = root.querySelector("[data-packs]") as HTMLElement;
   const dropzone = root.querySelector("[data-dropzone]") as HTMLElement;
   const fileInput = root.querySelector("[data-file-input]") as HTMLInputElement;
+  const folderInput = root.querySelector(
+    "[data-folder-input]"
+  ) as HTMLInputElement;
+  // Folder picker (Chromium / Safari / recent Firefox).
+  folderInput.setAttribute("webkitdirectory", "");
+  folderInput.setAttribute("directory", "");
   const searchInput = root.querySelector("[data-search]") as HTMLInputElement;
   const currentEl = root.querySelector("[data-current]") as HTMLElement;
   const metaCount = root.querySelector("[data-meta-count]") as HTMLElement;
@@ -143,6 +154,9 @@ export function createReplacePanel(
   const closeBtn = root.querySelector("[data-close]") as HTMLButtonElement;
   const selectBtn = root.querySelector("[data-select]") as HTMLButtonElement;
   const chooseBtn = root.querySelector("[data-choose]") as HTMLButtonElement;
+  const chooseFolderBtn = root.querySelector(
+    "[data-choose-folder]"
+  ) as HTMLButtonElement;
   const dragHandle = root.querySelector("[data-drag]") as HTMLElement;
 
   function applyPosition() {
@@ -327,12 +341,14 @@ export function createReplacePanel(
     customEl.hidden = !manage;
     actionsEl.hidden = manage;
     if (manage) {
+      hintEl.hidden = false;
       hintEl.textContent =
-        "Packs stay in this browser session by default. Wire onPackImport to sync into your design system repo.";
+        "Custom packs stay in this browser session by default";
       renderPacks();
     } else {
-      hintEl.textContent =
-        "Adds a page draft and queues the agent prompt — open the queue to copy it into Cursor, Claude Code, Codex, or any AI chat.";
+      // No footer hint on Lucide / Font Awesome / Iconoir (or custom browse).
+      hintEl.hidden = true;
+      hintEl.textContent = "";
       void renderGrid();
       searchInput.value = query;
     }
@@ -345,11 +361,12 @@ export function createReplacePanel(
   }
 
   async function importFiles(files: FileList | File[]) {
-    const { pack, skipped } = await createPackFromFiles(files);
+    const list = Array.from(files);
+    const { pack } = await createPackFromFiles(list);
     if (!pack) {
-      if (skipped.length > 0) {
+      if (list.length > 0) {
         hintEl.textContent =
-          "Only SVG files and SVG sprite sheets are supported for now.";
+          "No SVGs found. Drop a folder of .svg files, individual SVGs, or an SVG sprite sheet.";
       }
       return;
     }
@@ -359,6 +376,7 @@ export function createReplacePanel(
     customMode = "browse";
     query = "";
     selected = pack.icons[0] ?? null;
+    hintEl.textContent = `Imported ${pack.icons.length} icon${pack.icons.length === 1 ? "" : "s"} into “${pack.name}”.`;
     refresh();
   }
 
@@ -428,14 +446,25 @@ export function createReplacePanel(
     fileInput.click();
   });
 
+  chooseFolderBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    folderInput.click();
+  });
+
   dropzone.addEventListener("click", (e) => {
-    if ((e.target as HTMLElement).closest("[data-choose]")) return;
+    if ((e.target as HTMLElement).closest("[data-choose], [data-choose-folder]"))
+      return;
     fileInput.click();
   });
 
   fileInput.addEventListener("change", () => {
     if (fileInput.files?.length) void importFiles(fileInput.files);
     fileInput.value = "";
+  });
+
+  folderInput.addEventListener("change", () => {
+    if (folderInput.files?.length) void importFiles(folderInput.files);
+    folderInput.value = "";
   });
 
   dropzone.addEventListener("dragenter", (e) => {
@@ -452,8 +481,11 @@ export function createReplacePanel(
   dropzone.addEventListener("drop", (e) => {
     e.preventDefault();
     dropzone.classList.remove("is-dragging");
-    const files = e.dataTransfer?.files;
-    if (files?.length) void importFiles(files);
+    const dt = e.dataTransfer;
+    if (!dt) return;
+    void collectFilesFromDataTransfer(dt).then((files) => {
+      if (files.length) void importFiles(files);
+    });
   });
 
   dragHandle.addEventListener("pointerdown", (e) => {

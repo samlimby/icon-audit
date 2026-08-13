@@ -571,6 +571,23 @@ export const STYLES = /* css */ `
     cursor: pointer;
   }
 
+  .ia-dropzone__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .ia-dropzone__btn--ghost {
+    background: transparent;
+    color: #fafafa;
+    border: 1px solid #52525b;
+  }
+
+  .ia-dropzone__btn--ghost:hover {
+    background: #3f3f46;
+  }
+
   .ia-packs {
     display: flex;
     flex-direction: column;
