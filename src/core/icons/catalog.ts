@@ -167,12 +167,17 @@ export function renderModeFor(icon: CatalogIcon): IconRenderMode {
   return "stroke";
 }
 
-export function svgMarkupFor(icon: CatalogIcon, size = 22): string {
+export function svgMarkupFor(
+  icon: CatalogIcon,
+  size = 22,
+  color = "currentColor"
+): string {
   const viewBox = icon.viewBox || "0 0 24 24";
   const mode = renderModeFor(icon);
   const attrs =
     mode === "fill"
-      ? `fill="currentColor"`
-      : `fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`;
-  return `<svg width="${size}" height="${size}" viewBox="${viewBox}" ${attrs}>${icon.paths}</svg>`;
+      ? `fill="${color}"`
+      : `fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`;
+  return `<svg width="${size}" height="${size}" viewBox="${viewBox}" ${attrs} aria-hidden="true">${icon.paths}</svg>`;
 }
+

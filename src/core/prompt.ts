@@ -23,6 +23,8 @@ export interface PromptTargetMeta {
   nearbyText?: string;
   componentName?: string;
   size: number;
+  /** CSS color baked into the inline SVG so drafts match the original icon. */
+  color?: string;
 }
 
 function basenameFromSrc(src: string | null): string {
@@ -68,7 +70,7 @@ export function buildAgentPrompt(
   icon: CatalogIcon,
   meta: PromptTargetMeta
 ): string {
-  const rawSvg = svgMarkupFor(icon, meta.size);
+  const rawSvg = svgMarkupFor(icon, meta.size, meta.color || "currentColor");
   const accessibleName =
     scanned.locator.alt ||
     scanned.locator.ariaLabel ||

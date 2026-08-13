@@ -1,6 +1,6 @@
 {
   "name": "icon-audit",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Dev-only overlay that flags <img> icons vs inline <svg>, then helps replace them with Lucide, Font Awesome, or Iconoir via searchable catalogs and copy-paste agent prompts.",
   "license": "MIT",
   "repository": {

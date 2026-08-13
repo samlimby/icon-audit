@@ -1,5 +1,6 @@
 import type { CatalogIcon } from "./icons/catalog";
 import { preloadBuiltinCatalogs, svgMarkupFor } from "./icons/catalog";
+import { applyIconAppearance, readIconAppearance } from "./icon-appearance";
 import { stampOrigin } from "./dom-context";
 import { bindShortcut } from "./shortcut";
 import { isDevEnvironment } from "./env";
@@ -145,7 +146,10 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
     queuePanel.setPrompts(prompts);
   }
 
-  function enqueueFromIcon(icon: CatalogIcon): QueuedPrompt | null {
+  function enqueueFromIcon(
+    icon: CatalogIcon,
+    appearanceColor?: string
+  ): QueuedPrompt | null {
     if (!selected) return null;
     const rect = selected.element.getBoundingClientRect();
     const size = Math.max(14, Math.round(Math.max(rect.width, rect.height) || 18));
@@ -159,6 +163,7 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
       fileHint: fiber.fileHint,
       componentName: fiber.componentName,
       nearbyText: nearbyText(selected.element),
+      color: appearanceColor,
     });
     prompts = [prompt, ...prompts];
     saveQueue(prompts);
@@ -193,8 +198,9 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
     },
     onSelectIcon(icon) {
       if (!selected) return false;
+      const appearance = readIconAppearance(selected.element);
       // Queue prompt while we still have the original scanned target.
-      const prompt = enqueueFromIcon(icon);
+      const prompt = enqueueFromIcon(icon, appearance.color);
       if (prompt) {
         void copyText(prompt.markdown);
         queuePanel.open();
@@ -211,8 +217,8 @@ export function mountIconAudit(options: IconAuditOptions = {}): IconAuditControl
         tag: selected.tag,
       });
       wrap.style.display = "inline-flex";
-      wrap.style.color = "currentColor";
-      wrap.innerHTML = svgMarkupFor(icon, size);
+      applyIconAppearance(wrap, appearance);
+      wrap.innerHTML = svgMarkupFor(icon, size, appearance.color);
       const draftSvg = wrap.querySelector("svg");
       draftSvg?.setAttribute(DRAFT_ATTR, "true");
       selected.element.replaceWith(wrap);
