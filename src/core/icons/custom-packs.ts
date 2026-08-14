@@ -281,7 +281,10 @@ function readAllDirectoryEntries(
   });
 }
 
-export function formatPackMeta(pack: CustomPack): string {
+export function formatPackMeta(
+  pack: CustomPack,
+  persist: "project" | "local" = "local"
+): string {
   const count = pack.icons.length;
   const ageMs = Date.now() - pack.createdAt;
   const day = 24 * 60 * 60 * 1000;
@@ -290,6 +293,8 @@ export function formatPackMeta(pack: CustomPack): string {
       ? "uploaded today"
       : ageMs < 2 * day
         ? "uploaded yesterday"
-        : "localStorage";
+        : persist === "project"
+          ? "saved in project"
+          : "this browser";
   return `${count} icon${count === 1 ? "" : "s"} · ${when}`;
 }

@@ -1,12 +1,61 @@
 import type { ReactNode } from "react";
-import { Sliders } from "lucide-react";
+import {
+  Activity,
+  BarChart3,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  FolderKanban,
+  GitBranch,
+  Home,
+  Plus,
+  Puzzle,
+  RotateCcw,
+  Server,
+  Settings,
+  Sliders,
+  TriangleAlert,
+  Users,
+} from "lucide-react";
 import { IconAudit } from "icon-audit/react";
+import {
+  DataUriImg,
+  LocalImg,
+  NavItem,
+  REMOTE,
+  RemoteImg,
+} from "./icons";
 
-/** Remote-looking URL that will fail — classic red IMG case. */
-const REMOTE_BELL =
-  "https://assets.example.com/icons/bell-icon.svg";
+const DEPLOYS = [
+  { env: "prod", service: "api-gateway", sha: "a1c8f2", status: "healthy", ago: "2m" },
+  { env: "prod", service: "web-app", sha: "9e12bb", status: "healthy", ago: "14m" },
+  { env: "staging", service: "worker", sha: "c4d01a", status: "degraded", ago: "1h" },
+  { env: "prod", service: "billing", sha: "77af09", status: "healthy", ago: "3h" },
+  { env: "dev", service: "edge-cache", sha: "b20e11", status: "failed", ago: "5h" },
+  { env: "staging", service: "search", sha: "e91c44", status: "healthy", ago: "8h" },
+  { env: "prod", service: "notifier", sha: "12ab90", status: "healthy", ago: "1d" },
+  { env: "dev", service: "ml-ranker", sha: "f03c77", status: "degraded", ago: "2d" },
+] as const;
+
+const INTEGRATIONS = [
+  { name: "GitHub", icon: <LocalImg name="github-icon" alt="GitHub icon" size={20} /> },
+  { name: "Slack", icon: <LocalImg name="slack-icon" alt="Slack icon" size={20} /> },
+  { name: "Linear", icon: <LocalImg name="linear-icon" alt="Linear icon" size={20} /> },
+  { name: "S3", icon: <LocalImg name="s3-icon" alt="S3 icon" size={20} /> },
+  { name: "Figma", icon: <RemoteImg src={REMOTE.globe} alt="Figma icon" size={20} /> },
+  { name: "PagerDuty", icon: <RemoteImg src={REMOTE.zap} alt="PagerDuty icon" size={20} /> },
+] as const;
+
+const ACTIVITY = [
+  { title: "Rolled back worker@staging", meta: "alex · 12m ago", kind: "warn" as const },
+  { title: "api-gateway promoted to prod", meta: "deploy bot · 2h ago", kind: "ok" as const },
+  { title: "New member invited", meta: "jordan · 5h ago", kind: "info" as const },
+  { title: "Secret rotation completed", meta: "security · 1d ago", kind: "ok" as const },
+];
 
 export default function App() {
+  const fromDist = __ICON_AUDIT_FROM_DIST__;
+
   return (
     <div className="acme">
       <IconAudit enabled />
@@ -15,15 +64,19 @@ export default function App() {
         <div className="acme-brand">
           <span className="acme-mark" aria-hidden />
           <span className="acme-brand-name">Acme Console</span>
+          <span className={`acme-chip${fromDist ? " acme-chip--dist" : ""}`}>
+            {fromDist ? "published dist/" : "source (HMR)"}
+          </span>
         </div>
+
+        <label className="acme-search">
+          <LocalImg name="search-icon" alt="Search icon" className="acme-icon" />
+          <input type="search" placeholder="Search services, deploys…" />
+        </label>
+
         <div className="acme-nav-icons">
-          <img
-            className="acme-icon"
-            src={REMOTE_BELL}
-            alt="Notifications icon"
-            width={18}
-            height={18}
-          />
+          <LocalImg name="help-icon" alt="Help icon" className="acme-icon" />
+          <RemoteImg src={REMOTE.bell} alt="Notifications icon" className="acme-icon" />
           <Sliders className="acme-icon" size={18} aria-label="Sliders" />
           <svg
             className="acme-icon"
@@ -44,124 +97,276 @@ export default function App() {
           <NavItem
             active
             label="Overview"
-            icon={
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
-            }
+            icon={<Home size={16} strokeWidth={2} aria-hidden />}
           />
           <NavItem
             label="Projects"
-            icon={
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
-            }
+            icon={<FolderKanban size={16} strokeWidth={2} aria-hidden />}
+          />
+          <NavItem
+            label="Deploys"
+            icon={<LocalImg name="deploy-icon" alt="Deploys icon" />}
+          />
+          <NavItem
+            label="Analytics"
+            icon={<BarChart3 size={16} strokeWidth={2} aria-hidden />}
           />
           <NavItem
             label="Team"
-            icon={
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-            }
+            icon={<RemoteImg src={REMOTE.users} alt="Team icon" />}
+          />
+          <NavItem
+            label="Integrations"
+            icon={<Puzzle size={16} strokeWidth={2} aria-hidden />}
+          />
+          <NavItem
+            label="Billing"
+            icon={<LocalImg name="billing-icon" alt="Billing icon" />}
           />
           <NavItem
             label="Settings"
-            icon={
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-              </svg>
-            }
+            icon={<Settings size={16} strokeWidth={2} aria-hidden />}
           />
+
+          <div className="acme-sidebar-foot">
+            <p className="acme-hint">
+              Toggle audit bottom-left, or press{" "}
+              <kbd>⌘</kbd>
+              <kbd>⇧</kbd>
+              <kbd>I</kbd>
+            </p>
+          </div>
         </aside>
 
         <main className="acme-main">
-          <div className="acme-heading">
-            <h1>Project settings</h1>
-            <p>Manage notifications, access, and visual assets for this workspace.</p>
-          </div>
-
-          <div className="acme-actions">
-            <button type="button" className="acme-btn acme-btn--primary">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <path d="M12 5v14" />
-                <path d="M5 12h14" />
-              </svg>
-              Add member
-            </button>
-            <button type="button" className="acme-btn acme-btn--secondary">
-              <img
-                src="/icons/export-icon.svg"
-                alt="Export icon"
-                width={14}
-                height={14}
-              />
-              Export
-            </button>
-          </div>
-
-          <div className="acme-cards">
-            <div className="acme-card">
-              <div className="acme-card-row">
-                <div className="acme-card-icon acme-card-icon--danger">
-                  <img
-                    src={REMOTE_BELL}
-                    alt="Alerts icon"
-                    width={18}
-                    height={18}
-                  />
-                </div>
-                <div className="acme-card-title">Alerts</div>
-              </div>
-              <p className="acme-card-meta">Remote &lt;img&gt; icon — flagged red</p>
+          <div className="acme-heading-row">
+            <div className="acme-heading">
+              <h1>Deployments</h1>
+              <p>Production and staging services for the acme-web workspace.</p>
             </div>
-
-            <div className="acme-card">
-              <div className="acme-card-row">
-                <div className="acme-card-icon acme-card-icon--ok">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-label="Status"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <div className="acme-card-title">Status</div>
-              </div>
-              <p className="acme-card-meta">Inline SVG — flagged green</p>
+            <div className="acme-actions">
+              <button type="button" className="acme-btn acme-btn--primary">
+                <Plus size={14} strokeWidth={2} aria-hidden />
+                New deploy
+              </button>
+              <button type="button" className="acme-btn acme-btn--secondary">
+                <LocalImg name="export-icon" alt="Export icon" />
+                Export
+              </button>
+              <button type="button" className="acme-btn acme-btn--secondary">
+                <LocalImg name="share-icon" alt="Share icon" />
+                Share
+              </button>
+              <button type="button" className="acme-btn acme-btn--ghost" aria-label="More actions">
+                <LocalImg name="more-icon" alt="More icon" />
+              </button>
             </div>
           </div>
+
+          <div className="acme-kpis">
+            <Kpi
+              label="Healthy"
+              value="18"
+              meta="Inline SVG — green"
+              tone="ok"
+              icon={<Check size={18} strokeWidth={2} aria-label="Healthy" />}
+            />
+            <Kpi
+              label="Degraded"
+              value="3"
+              meta="Remote <img> — red"
+              tone="warn"
+              icon={<RemoteImg src={REMOTE.chart} alt="Degraded icon" size={18} />}
+            />
+            <Kpi
+              label="Failed"
+              value="1"
+              meta="Remote <img> — red"
+              tone="danger"
+              icon={<RemoteImg src={REMOTE.zap} alt="Failed icon" size={18} />}
+            />
+            <Kpi
+              label="Mean deploy"
+              value="4.2m"
+              meta="Data URI <img> — red"
+              tone="neutral"
+              icon={<DataUriImg alt="Duration icon" size={18} />}
+            />
+          </div>
+
+          <div className="acme-toolbar">
+            <button type="button" className="acme-chip-btn is-active">
+              <LocalImg name="filter-icon" alt="Filter icon" />
+              All envs
+              <ChevronDown size={12} aria-hidden />
+            </button>
+            <button type="button" className="acme-chip-btn">
+              <GitBranch size={14} strokeWidth={2} aria-hidden />
+              main
+            </button>
+            <button type="button" className="acme-chip-btn">
+              <Server size={14} strokeWidth={2} aria-hidden />
+              8 services
+            </button>
+            <button type="button" className="acme-chip-btn" aria-label="Refresh">
+              <LocalImg name="refresh-icon" alt="Refresh icon" />
+            </button>
+          </div>
+
+          <div className="acme-table-wrap">
+            <table className="acme-table">
+              <thead>
+                <tr>
+                  <th>Service</th>
+                  <th>Env</th>
+                  <th>SHA</th>
+                  <th>Status</th>
+                  <th>Age</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {DEPLOYS.map((row) => (
+                  <tr key={`${row.service}-${row.env}`}>
+                    <td>
+                      <span className="acme-cell-icon">
+                        <Activity size={14} strokeWidth={2} aria-hidden />
+                        {row.service}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`acme-env acme-env--${row.env}`}>{row.env}</span>
+                    </td>
+                    <td className="acme-mono">{row.sha}</td>
+                    <td>
+                      <Status status={row.status} />
+                    </td>
+                    <td className="acme-muted">{row.ago}</td>
+                    <td>
+                      <span className="acme-row-actions">
+                        <LocalImg name="logs-icon" alt="Logs icon" />
+                        <RotateCcw size={14} strokeWidth={2} aria-label="Rollback" />
+                        <LocalImg name="trash-icon" alt="Delete icon" />
+                        <LocalImg name="more-icon" alt="Row menu icon" />
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="acme-split">
+            <section className="acme-panel">
+              <div className="acme-panel-head">
+                <h2>Integrations</h2>
+                <LocalImg name="more-icon" alt="Integrations menu icon" />
+              </div>
+              <div className="acme-integrations">
+                {INTEGRATIONS.map((item) => (
+                  <div key={item.name} className="acme-integration">
+                    <span className="acme-integration-icon">{item.icon}</span>
+                    <span>{item.name}</span>
+                    <ChevronRight size={14} className="acme-muted" aria-hidden />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="acme-panel">
+              <div className="acme-panel-head">
+                <h2>Activity</h2>
+                <Users size={16} strokeWidth={2} aria-label="Team activity" />
+              </div>
+              <ul className="acme-activity">
+                {ACTIVITY.map((item) => (
+                  <li key={item.title}>
+                    <span className={`acme-activity-icon acme-activity-icon--${item.kind}`}>
+                      {item.kind === "ok" ? (
+                        <Check size={14} strokeWidth={2} aria-hidden />
+                      ) : item.kind === "warn" ? (
+                        <TriangleAlert size={14} strokeWidth={2} aria-hidden />
+                      ) : (
+                        <RemoteImg src={REMOTE.users} alt="Activity icon" size={14} />
+                      )}
+                    </span>
+                    <div>
+                      <div className="acme-activity-title">{item.title}</div>
+                      <div className="acme-muted">{item.meta}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+
+          <section className="acme-panel acme-panel--photo">
+            <div className="acme-panel-head">
+              <h2>Workspace cover</h2>
+              <p className="acme-muted">Large photo — should not be flagged as an icon</p>
+            </div>
+            <img
+              className="acme-cover"
+              src="https://picsum.photos/seed/acme-console/960/240"
+              alt="Team working in the office"
+              width={960}
+              height={240}
+            />
+          </section>
         </main>
       </div>
     </div>
   );
 }
 
-function NavItem({
+function Kpi({
   label,
+  value,
+  meta,
+  tone,
   icon,
-  active,
 }: {
   label: string;
+  value: string;
+  meta: string;
+  tone: "ok" | "warn" | "danger" | "neutral";
   icon: ReactNode;
-  active?: boolean;
 }) {
   return (
-    <div className={`acme-nav-item${active ? " is-active" : ""}`}>
-      <span className="acme-nav-item-icon">{icon}</span>
-      <span>{label}</span>
+    <div className="acme-card">
+      <div className="acme-card-row">
+        <div className={`acme-card-icon acme-card-icon--${tone}`}>{icon}</div>
+        <div>
+          <div className="acme-card-label">{label}</div>
+          <div className="acme-card-value">{value}</div>
+        </div>
+      </div>
+      <p className="acme-card-meta">{meta}</p>
     </div>
+  );
+}
+
+function Status({ status }: { status: "healthy" | "degraded" | "failed" }) {
+  if (status === "healthy") {
+    return (
+      <span className="acme-status acme-status--ok">
+        <Check size={12} strokeWidth={2.5} aria-hidden />
+        healthy
+      </span>
+    );
+  }
+  if (status === "degraded") {
+    return (
+      <span className="acme-status acme-status--warn">
+        <TriangleAlert size={12} strokeWidth={2.5} aria-hidden />
+        degraded
+      </span>
+    );
+  }
+  return (
+    <span className="acme-status acme-status--danger">
+      <RemoteImg src={REMOTE.zap} alt="Failed status icon" size={12} />
+      failed
+    </span>
   );
 }

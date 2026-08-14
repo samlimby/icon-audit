@@ -60,9 +60,9 @@ audit.destroy();
   `<img>` — with an `SVG`/`IMG` badge and a hover tooltip explaining why it
   was flagged and, for `<img>` icons, whether the source is local or remote.
 - Click a red highlight to open the replace panel. Search Lucide, Font Awesome
-  Solid, or Iconoir (~5k icons, bundled), then **Select** to draft the swap on
-  the page and queue an agent prompt (also copied to the clipboard) for Cursor /
-  Claude Code / Codex.
+  Solid, or Iconoir (~5k icons, bundled), or upload your own SVG pack, then
+  **Select** to draft the swap on the page and queue an agent prompt (also
+  copied to the clipboard) for Cursor / Claude Code / Codex.
 - The pill toolbar shows counts and a close button.
 
 Regular images — photos, illustrations, banners — are left alone. Only
@@ -99,18 +99,57 @@ mountIconAudit({
 
 `<IconAudit />` accepts the same options as props.
 
+## Persist custom packs (Vite)
+
+By default, uploaded custom packs are stored in this origin's `localStorage`
+(they survive refresh, but not a different port or host).
+
+Add the Vite plugin so an upload is written immediately to
+`.icon-audit/custom-packs.json` in the project — no refresh required. That
+file is then loaded on any origin serving this app.
+
+```ts
+import { iconAudit } from "icon-audit/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [iconAudit()],
+});
+```
+
+Commit `.icon-audit/` to share packs with teammates, or gitignore it to keep
+them local. Without the plugin, packs still persist across refresh on the
+same origin.
+
 ## Development
+
+You don't need to publish to npm to review overlay UI. `example/` is a fake
+icon-heavy dashboard (nav, KPIs, table actions, integrations) that mounts
+`<IconAudit />` the same way a consuming app would.
 
 ```sh
 npm install
+cd example && npm install && cd ..   # once — links the local package via file:..
+
+# Fastest for CSS/layout tweaks: overlay source with Vite HMR
+npm run example
+
+# Same dashboard, but against dist/ — the files `npm publish` would ship
+npm run example:dist
+
+# Rebuild dist on save and reload the dashboard
+npm run example:watch
+```
+
+Open [http://localhost:5173](http://localhost:5173). The header chip shows
+whether you're on **source (HMR)** or **published dist/**. Press
+**Cmd/Ctrl+Shift+I** (or the bottom-left toggle) to scan.
+
+```sh
 npm run generate:icons   # rebuild Lucide / FA / Iconoir catalogs
 npm run build            # generate:icons + tsup -> dist/
 npm test                 # vitest
 npm run typecheck
-
-cd example
-npm install              # links the local package via file:..
-npm run dev              # try it against a real page
 ```
 
 Catalog JSON under `src/core/icons/generated/` is committed so consumers do not

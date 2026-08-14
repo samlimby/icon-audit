@@ -13,8 +13,12 @@ import {
   CustomPack,
   formatPackMeta,
   loadCustomPacks,
-  saveCustomPacks,
 } from "./icons/custom-packs";
+import {
+  persistCustomPacks,
+  syncCustomPacks,
+  type PackPersist,
+} from "./icons/pack-sync";
 import type { ScannedElement } from "./types";
 
 const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
@@ -69,6 +73,7 @@ export function createReplacePanel(
   let selected: CatalogIcon | null = null;
   let current: ScannedElement | null = null;
   let packs: CustomPack[] = loadCustomPacks();
+  let persistKind: PackPersist = "local";
   let customMode: CustomMode = "manage";
   let browsingPackId: string | null = null;
   let customPos: { left: number; top: number } | null = null;
@@ -255,7 +260,7 @@ export function createReplacePanel(
           <div class="ia-pack-row__icon">${icon}</div>
           <div class="ia-pack-row__body">
             <div class="ia-pack-row__title">${escapeHtml(pack.name)}</div>
-            <div class="ia-pack-row__meta">${escapeHtml(formatPackMeta(pack))}</div>
+            <div class="ia-pack-row__meta">${escapeHtml(formatPackMeta(pack, persistKind))}</div>
           </div>
           <button type="button" class="ia-pack-row__browse" data-browse="${pack.id}">Browse</button>
         </div>`;
@@ -342,7 +347,9 @@ export function createReplacePanel(
     if (manage) {
       hintEl.hidden = false;
       hintEl.textContent =
-        "Custom packs stay in this browser session by default";
+        persistKind === "project"
+          ? "Packs are saved in this project and persist across reloads and ports."
+          : "Packs stay in this browser. Add the Vite plugin to save them in the project.";
       renderPacks();
     } else {
       // No footer hint on Lucide / Font Awesome / Iconoir (or custom browse).
@@ -370,13 +377,27 @@ export function createReplacePanel(
       return;
     }
     packs = [pack, ...packs];
-    saveCustomPacks(packs);
+    persistKind = await persistCustomPacks(packs);
     browsingPackId = pack.id;
     customMode = "browse";
     query = "";
     selected = pack.icons[0] ?? null;
-    hintEl.textContent = `Imported ${pack.icons.length} icon${pack.icons.length === 1 ? "" : "s"} into “${pack.name}”.`;
     refresh();
+    const saved =
+      persistKind === "project" ? " Saved to the project." : "";
+    hintEl.hidden = false;
+    hintEl.textContent = `Imported ${pack.icons.length} icon${pack.icons.length === 1 ? "" : "s"} into “${pack.name}”.${saved}`;
+  }
+
+  async function hydratePacks() {
+    const result = await syncCustomPacks();
+    packs = result.packs;
+    persistKind = result.persist;
+    if (browsingPackId && !packs.some((p) => p.id === browsingPackId)) {
+      browsingPackId = null;
+      if (library === "custom") customMode = "manage";
+    }
+    if (!root.hidden && library === "custom") refresh();
   }
 
   tabsEl.addEventListener("click", (e) => {
@@ -543,6 +564,7 @@ export function createReplacePanel(
     applyPosition();
     root.hidden = false;
     refresh();
+    void hydratePacks();
   }
 
   function close() {
@@ -557,6 +579,8 @@ export function createReplacePanel(
   function destroy() {
     root.remove();
   }
+
+  void hydratePacks();
 
   return { open, close, isOpen, destroy };
 }
