@@ -1,4 +1,4 @@
-import type { CatalogIcon } from "./catalog";
+import type { CatalogIcon, IconRenderMode } from "./catalog";
 
 const STORAGE_KEY = "icon-audit:custom-packs";
 
@@ -59,9 +59,38 @@ function packNameFromFiles(files: File[]): string {
   })}`;
 }
 
+const SVG_ROOT_ATTRS = [
+  "fill",
+  "stroke",
+  "stroke-width",
+  "stroke-linecap",
+  "stroke-linejoin",
+  "stroke-miterlimit",
+] as const;
+
+export function captureSvgRootAttrs(el: Element): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  for (const name of SVG_ROOT_ATTRS) {
+    const value = el.getAttribute(name);
+    if (value) attrs[name] = value;
+  }
+  return attrs;
+}
+
+function renderFromSvg(el: Element): IconRenderMode {
+  const fill = (el.getAttribute("fill") || "").toLowerCase();
+  if (fill === "none") return "stroke";
+  if (el.getAttribute("stroke") || el.querySelector("[stroke]")) return "stroke";
+  if (fill && fill !== "none") return "fill";
+  if (el.querySelector("[fill]:not([fill='none'])")) return "fill";
+  return "stroke";
+}
+
 function extractSvgInner(svgText: string): {
   paths: string;
   viewBox: string;
+  svgAttrs: Record<string, string>;
+  render: IconRenderMode;
 } | null {
   const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
   if (doc.querySelector("parsererror")) return null;
@@ -82,7 +111,12 @@ function extractSvgInner(svgText: string): {
       return `0 0 ${parseFloat(w) || 24} ${parseFloat(h) || 24}`;
     })();
 
-  return { paths: svg.innerHTML.trim(), viewBox };
+  return {
+    paths: svg.innerHTML.trim(),
+    viewBox,
+    svgAttrs: captureSvgRootAttrs(svg),
+    render: renderFromSvg(svg),
+  };
 }
 
 export function parseSvgSprite(
@@ -105,6 +139,8 @@ export function parseSvgSprite(
         exportName: toPascal(name),
         paths: symbol.innerHTML.trim(),
         viewBox,
+        render: renderFromSvg(symbol),
+        svgAttrs: captureSvgRootAttrs(symbol),
       };
     })
     .filter((icon) => icon.paths);
@@ -137,6 +173,8 @@ async function fileToCatalogIcon(
       exportName: toPascal(name),
       paths: parsed.paths,
       viewBox: parsed.viewBox,
+      render: parsed.render,
+      svgAttrs: parsed.svgAttrs,
     },
   ];
 }
@@ -153,6 +191,27 @@ export function loadCustomPacks(): CustomPack[] {
 
 export function saveCustomPacks(packs: CustomPack[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(packs));
+}
+
+/** Rename a pack. Empty or whitespace-only names are ignored. */
+export function renameCustomPack(
+  packs: CustomPack[],
+  id: string,
+  name: string
+): CustomPack[] {
+  const trimmed = name.trim();
+  if (!trimmed) return packs;
+  return packs.map((pack) =>
+    pack.id === id ? { ...pack, name: trimmed } : pack
+  );
+}
+
+export function removeCustomPack(
+  packs: CustomPack[],
+  id: string
+): CustomPack[] {
+  const next = packs.filter((pack) => pack.id !== id);
+  return next.length === packs.length ? packs : next;
 }
 
 export async function createPackFromFiles(files: FileList | File[]): Promise<{

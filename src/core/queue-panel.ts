@@ -1,4 +1,5 @@
 import type { QueuedPrompt } from "./prompt";
+import { emptyStateHtml } from "./empty-art";
 import { flashCopied } from "./flash-copied";
 
 const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
@@ -84,7 +85,10 @@ export function createQueuePanel(
   function renderList() {
     const items = filtered();
     if (items.length === 0) {
-      listEl.innerHTML = `<div class="ia-panel__empty">No prompts yet. Select an icon from Replace icon to queue a draft.</div>`;
+      listEl.innerHTML = emptyStateHtml(
+        "terminal",
+        "No prompts yet. Select an icon from Replace icon to queue a draft."
+      );
       return;
     }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { searchCatalog, svgMarkupFor } from "./catalog";
+import type { CatalogIcon } from "./catalog";
 
 describe("icon catalogs", () => {
   it("searches lucide with stroke markup", async () => {
@@ -39,5 +40,44 @@ describe("icon catalogs", () => {
     const matches = result.icons.filter((i) => i.name === "address-book");
     expect(matches).toHaveLength(1);
     expect(matches[0].exportName).toBe("faAddressBook");
+  });
+
+  it("previews custom outline packs as stroke, not filled shapes", () => {
+    const icon: CatalogIcon = {
+      id: "pack-bracket",
+      name: "1st-bracket-square-stroke-rounded",
+      library: "custom",
+      packageName: "custom-pack",
+      exportName: "FirstBracket",
+      paths: `<path d="M6 4h4"/>`,
+      viewBox: "0 0 24 24",
+      svgAttrs: {
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": "1.5",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+      },
+    };
+    const svg = svgMarkupFor(icon, 22);
+    expect(svg).toContain('fill="none"');
+    expect(svg).toContain('stroke="currentColor"');
+    expect(svg).toContain('stroke-width="1.5"');
+    expect(svg).not.toMatch(/<svg[^>]*fill="currentColor"/);
+  });
+
+  it("treats legacy custom packs with bare paths as stroke", () => {
+    const icon: CatalogIcon = {
+      id: "pack-legacy",
+      name: "legacy-icon",
+      library: "custom",
+      packageName: "custom-pack",
+      exportName: "Legacy",
+      paths: `<path d="M6 4h4"/>`,
+      viewBox: "0 0 24 24",
+    };
+    const svg = svgMarkupFor(icon, 22);
+    expect(svg).toContain('fill="none"');
+    expect(svg).toContain('stroke="currentColor"');
   });
 });

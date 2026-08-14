@@ -13,6 +13,8 @@ export interface CatalogIcon {
   /** Optional viewBox; defaults to 0 0 24 24. */
   viewBox?: string;
   render?: IconRenderMode;
+  /** Presentation attributes copied from the original <svg> (custom packs). */
+  svgAttrs?: Record<string, string>;
 }
 
 type GeneratedRow = [name: string, exportName: string, paths: string, viewBox: string];
@@ -161,10 +163,53 @@ export async function searchCatalog(
   };
 }
 
+const SVG_ROOT_ATTRS = [
+  "fill",
+  "stroke",
+  "stroke-width",
+  "stroke-linecap",
+  "stroke-linejoin",
+  "stroke-miterlimit",
+] as const;
+
 export function renderModeFor(icon: CatalogIcon): IconRenderMode {
   if (icon.render) return icon.render;
-  if (icon.library === "fontawesome" || icon.library === "custom") return "fill";
+  if (icon.library === "fontawesome") return "fill";
+  if (icon.library === "custom") return inferCustomRender(icon);
   return "stroke";
+}
+
+function inferCustomRender(icon: CatalogIcon): IconRenderMode {
+  const rootFill = icon.svgAttrs?.fill;
+  if (rootFill === "none") return "stroke";
+  if (rootFill && rootFill !== "none") return "fill";
+  if (/stroke=/i.test(icon.paths)) return "stroke";
+  if (/fill=["'](?!none)[^"']+["']/i.test(icon.paths)) return "fill";
+  // Bare paths from an outline pack (fill="none" lived on the discarded <svg>).
+  return "stroke";
+}
+
+function escapeAttr(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
+function customRootAttrs(icon: CatalogIcon, color: string): string | null {
+  if (icon.library !== "custom") return null;
+  const captured = icon.svgAttrs;
+  if (!captured || Object.keys(captured).length === 0) return null;
+  const parts: string[] = [];
+  for (const key of SVG_ROOT_ATTRS) {
+    let value = captured[key];
+    if (!value) continue;
+    if ((key === "fill" || key === "stroke") && value !== "none") {
+      value = color;
+    }
+    parts.push(`${key}="${escapeAttr(value)}"`);
+  }
+  if (!captured.fill && renderModeFor(icon) === "stroke") {
+    parts.unshift(`fill="none"`);
+  }
+  return parts.length > 0 ? parts.join(" ") : null;
 }
 
 export function svgMarkupFor(
@@ -173,11 +218,16 @@ export function svgMarkupFor(
   color = "currentColor"
 ): string {
   const viewBox = icon.viewBox || "0 0 24 24";
+  const customAttrs = customRootAttrs(icon, color);
   const mode = renderModeFor(icon);
+  const strokeWidth =
+    icon.svgAttrs?.["stroke-width"] ||
+    (icon.library === "custom" ? "1.5" : "2");
   const attrs =
-    mode === "fill"
+    customAttrs ??
+    (mode === "fill"
       ? `fill="${color}"`
-      : `fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`;
+      : `fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"`);
   return `<svg width="${size}" height="${size}" viewBox="${viewBox}" ${attrs} aria-hidden="true">${icon.paths}</svg>`;
 }
 

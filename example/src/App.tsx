@@ -183,7 +183,25 @@ export default function App() {
               value="1"
               meta="Remote <img> — red"
               tone="danger"
-              icon={<RemoteImg src={REMOTE.zap} alt="Failed icon" size={18} />}
+              icon={
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="rgb(239, 68, 68)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  role="img"
+                  aria-label="Failed icon"
+                >
+                  <path d="m14 12 4 4 4-4" />
+                  <path d="M18 16V7" />
+                  <path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16" />
+                  <path d="M3.304 13h6.392" />
+                </svg>
+              }
             />
             <Kpi
               label="Mean deploy"

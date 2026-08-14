@@ -13,6 +13,8 @@ import {
   CustomPack,
   formatPackMeta,
   loadCustomPacks,
+  removeCustomPack,
+  renameCustomPack,
 } from "./icons/custom-packs";
 import {
   persistCustomPacks,
@@ -20,12 +22,14 @@ import {
   type PackPersist,
 } from "./icons/pack-sync";
 import type { ScannedElement } from "./types";
+import { emptyStateHtml } from "./empty-art";
 
 const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
 const ICON_SEARCH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>`;
 const ICON_UPLOAD = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`;
 const ICON_PACK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`;
 const ICON_TRAY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>`;
+const ICON_KEBAB = `<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 5.2C7.227 5.2 6.6 4.573 6.6 3.8 6.6 3.028 7.227 2.4 8 2.4 8.772 2.4 9.4 3.028 9.4 3.8 9.4 4.573 8.772 5.2 8 5.2zM8 10.8C8.772 10.8 9.4 11.428 9.4 12.2 9.4 12.973 8.772 13.6 8 13.6 7.227 13.6 6.6 12.973 6.6 12.2 6.6 11.428 7.227 10.8 8 10.8zM9.4 8C9.4 8.773 8.772 9.4 8 9.4 7.227 9.4 6.6 8.773 6.6 8 6.6 7.228 7.227 6.6 8 6.6 8.772 6.6 9.4 7.228 9.4 8z"/></svg>`;
 
 export interface ReplacePanelCallbacks {
   onClose: () => void;
@@ -60,6 +64,55 @@ function escapeHtml(value: string): string {
 
 type CustomMode = "manage" | "browse";
 
+/** Chromium blocks file pickers for inputs inside Shadow DOM. Sit the inputs
+ * on document.body and cover the visible buttons so the click is native. */
+function createLightFileInput(options: {
+  accept?: string;
+  directory?: boolean;
+}): HTMLInputElement {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.multiple = true;
+  if (options.accept) input.accept = options.accept;
+  if (options.directory) {
+    input.setAttribute("webkitdirectory", "");
+    input.setAttribute("directory", "");
+  }
+  input.setAttribute("aria-hidden", "true");
+  input.tabIndex = -1;
+  input.style.cssText =
+    "position:fixed;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none;border:0;padding:0;margin:0;";
+  document.body.appendChild(input);
+  return input;
+}
+
+function coverButton(
+  input: HTMLInputElement,
+  btn: HTMLElement,
+  show: boolean
+) {
+  if (!show) {
+    input.style.cssText =
+      "position:fixed;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none;border:0;padding:0;margin:0;";
+    return;
+  }
+  const r = btn.getBoundingClientRect();
+  input.style.cssText = [
+    "position:fixed",
+    `left:${Math.round(r.left)}px`,
+    `top:${Math.round(r.top)}px`,
+    `width:${Math.max(Math.round(r.width), 1)}px`,
+    `height:${Math.max(Math.round(r.height), 1)}px`,
+    "opacity:0",
+    "cursor:pointer",
+    "z-index:2147483647",
+    "margin:0",
+    "padding:0",
+    "border:0",
+    "overflow:hidden",
+  ].join(";");
+}
+
 export function createReplacePanel(
   shadowRoot: ShadowRoot,
   callbacks: ReplacePanelCallbacks
@@ -76,6 +129,8 @@ export function createReplacePanel(
   let persistKind: PackPersist = "local";
   let customMode: CustomMode = "manage";
   let browsingPackId: string | null = null;
+  let renamingPackId: string | null = null;
+  let packMenuEl: HTMLElement | null = null;
   let customPos: { left: number; top: number } | null = null;
   let drag:
     | { pointerId: number; offsetX: number; offsetY: number }
@@ -100,16 +155,14 @@ export function createReplacePanel(
         </div>
       </div>
       <div class="ia-panel__meta">
-        <span data-meta-count>0 matches</span>
         <button type="button" class="ia-panel__meta-link" data-back-packs hidden>← Packs</button>
+        <span data-meta-count>0 matches</span>
         <span data-meta-style>Outline</span>
       </div>
       <div class="ia-panel__grid" data-grid></div>
     </div>
     <div class="ia-panel__custom" data-custom hidden>
       <div class="ia-dropzone" data-dropzone>
-        <input type="file" data-file-input accept=".svg,image/svg+xml" multiple hidden />
-        <input type="file" data-folder-input multiple hidden />
         <div class="ia-dropzone__icon" aria-hidden>${ICON_UPLOAD}</div>
         <div class="ia-dropzone__title">Upload icon pack</div>
         <div class="ia-dropzone__actions">
@@ -141,15 +194,13 @@ export function createReplacePanel(
   const gridEl = root.querySelector("[data-grid]") as HTMLElement;
   const packsEl = root.querySelector("[data-packs]") as HTMLElement;
   const dropzone = root.querySelector("[data-dropzone]") as HTMLElement;
-  const fileInput = root.querySelector("[data-file-input]") as HTMLInputElement;
-  const folderInput = root.querySelector(
-    "[data-folder-input]"
-  ) as HTMLInputElement;
-  // Folder picker (Chromium / Safari / recent Firefox).
-  folderInput.setAttribute("webkitdirectory", "");
-  folderInput.setAttribute("directory", "");
+  const fileInput = createLightFileInput({
+    accept: ".svg,image/svg+xml",
+  });
+  const folderInput = createLightFileInput({ directory: true });
   const searchInput = root.querySelector("[data-search]") as HTMLInputElement;
   const currentEl = root.querySelector("[data-current]") as HTMLElement;
+  const metaEl = root.querySelector(".ia-panel__meta") as HTMLElement;
   const metaCount = root.querySelector("[data-meta-count]") as HTMLElement;
   const metaStyle = root.querySelector("[data-meta-style]") as HTMLElement;
   const backPacksBtn = root.querySelector("[data-back-packs]") as HTMLButtonElement;
@@ -162,6 +213,26 @@ export function createReplacePanel(
     "[data-choose-folder]"
   ) as HTMLButtonElement;
   const dragHandle = root.querySelector("[data-drag]") as HTMLElement;
+  let pickerRaf: number | null = null;
+
+  function syncPickerInputs() {
+    const show = !root.hidden && isCustomManage();
+    coverButton(fileInput, chooseBtn, show);
+    coverButton(folderInput, chooseFolderBtn, show);
+    if (!show) {
+      chooseBtn.classList.remove("is-hover");
+      chooseFolderBtn.classList.remove("is-hover");
+    }
+    if (show && pickerRaf == null) {
+      const loop = () => {
+        const visible = !root.hidden && isCustomManage();
+        coverButton(fileInput, chooseBtn, visible);
+        coverButton(folderInput, chooseFolderBtn, visible);
+        pickerRaf = visible ? requestAnimationFrame(loop) : null;
+      };
+      pickerRaf = requestAnimationFrame(loop);
+    }
+  }
 
   function applyPosition() {
     if (!customPos) {
@@ -247,25 +318,123 @@ export function createReplacePanel(
   }
 
   function renderPacks() {
+    closePackMenu();
     if (packs.length === 0) {
-      packsEl.innerHTML = `<div class="ia-packs__empty">No packs yet. Drop SVGs above to install one.</div>`;
+      packsEl.innerHTML = emptyStateHtml(
+        "folder",
+        "No custom packs added"
+      );
       return;
     }
 
     packsEl.innerHTML = packs
       .map((pack, index) => {
         const icon = index % 2 === 0 ? ICON_PACK : ICON_TRAY;
+        const renaming = renamingPackId === pack.id;
+        const title = renaming
+          ? `<input class="ia-pack-row__rename" data-rename="${pack.id}" value="${escapeHtml(pack.name)}" aria-label="Pack name" spellcheck="false" />`
+          : `<button type="button" class="ia-pack-row__title" data-rename-start="${pack.id}">${escapeHtml(pack.name)}</button>`;
         return `
         <div class="ia-pack-row" data-pack-id="${pack.id}">
           <div class="ia-pack-row__icon">${icon}</div>
           <div class="ia-pack-row__body">
-            <div class="ia-pack-row__title">${escapeHtml(pack.name)}</div>
+            ${title}
             <div class="ia-pack-row__meta">${escapeHtml(formatPackMeta(pack, persistKind))}</div>
           </div>
           <button type="button" class="ia-pack-row__browse" data-browse="${pack.id}">Browse</button>
+          <button type="button" class="ia-pack-row__kebab" data-pack-menu="${pack.id}" aria-label="Pack actions" aria-haspopup="menu" aria-expanded="false">${ICON_KEBAB}</button>
         </div>`;
       })
       .join("");
+
+    if (renamingPackId) {
+      const input = packsEl.querySelector(
+        "[data-rename]"
+      ) as HTMLInputElement | null;
+      input?.focus();
+      input?.select();
+      if (input) sizeRenameInput(input);
+    }
+  }
+
+  function sizeRenameInput(input: HTMLInputElement) {
+    input.style.width = "0";
+    input.style.width = `${Math.max(input.scrollWidth, 8)}px`;
+  }
+
+  function beginRename(id: string) {
+    if (renamingPackId === id) return;
+    if (renamingPackId) {
+      const prev = packsEl.querySelector(
+        "[data-rename]"
+      ) as HTMLInputElement | null;
+      if (prev) endRename(prev, true);
+    }
+    renamingPackId = id;
+    renderPacks();
+  }
+
+  function endRename(input: HTMLInputElement, commit: boolean) {
+    if (!input.isConnected) return;
+    const id = input.dataset.rename;
+    if (!id || renamingPackId !== id) return;
+    renamingPackId = null;
+    if (commit) {
+      const next = renameCustomPack(packs, id, input.value);
+      if (next !== packs) {
+        packs = next;
+        void persistCustomPacks(packs).then((kind) => {
+          persistKind = kind;
+        });
+      }
+    }
+    const pack = packs.find((p) => p.id === id);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ia-pack-row__title";
+    btn.dataset.renameStart = id;
+    btn.textContent = pack?.name ?? input.value;
+    input.replaceWith(btn);
+  }
+
+  function closePackMenu() {
+    packMenuEl?.remove();
+    packMenuEl = null;
+    for (const btn of packsEl.querySelectorAll("[data-pack-menu]")) {
+      (btn as HTMLElement).setAttribute("aria-expanded", "false");
+    }
+  }
+
+  function togglePackMenu(id: string, kebab: HTMLElement) {
+    if (packMenuEl?.dataset.packId === id) {
+      closePackMenu();
+      return;
+    }
+    closePackMenu();
+    const panelRect = root.getBoundingClientRect();
+    const kebabRect = kebab.getBoundingClientRect();
+    packMenuEl = document.createElement("div");
+    packMenuEl.className = "ia-pack-menu";
+    packMenuEl.dataset.packId = id;
+    packMenuEl.setAttribute("role", "menu");
+    packMenuEl.innerHTML = `<button type="button" class="ia-pack-menu__item" data-pack-delete="${id}" role="menuitem">Delete</button>`;
+    packMenuEl.style.top = `${kebabRect.bottom - panelRect.top + 4}px`;
+    packMenuEl.style.right = `${panelRect.right - kebabRect.right}px`;
+    root.appendChild(packMenuEl);
+    kebab.setAttribute("aria-expanded", "true");
+  }
+
+  async function deletePack(id: string) {
+    closePackMenu();
+    const next = removeCustomPack(packs, id);
+    if (next === packs) return;
+    packs = next;
+    if (browsingPackId === id) {
+      browsingPackId = null;
+      customMode = "manage";
+    }
+    persistKind = await persistCustomPacks(packs);
+    refresh();
   }
 
   async function renderGrid() {
@@ -275,7 +444,9 @@ export function createReplacePanel(
         ? browsingPack()?.name ?? "Custom"
         : libraries.find((l) => l.id === library)?.label ?? library;
 
-    backPacksBtn.hidden = !(library === "custom" && customMode === "browse");
+    const browsingPacks = library === "custom" && customMode === "browse";
+    backPacksBtn.hidden = !browsingPacks;
+    metaEl.classList.toggle("ia-panel__meta--browse", browsingPacks);
     metaStyle.hidden = library === "custom";
 
     let results: CatalogIcon[];
@@ -320,11 +491,12 @@ export function createReplacePanel(
     }
 
     if (results.length === 0) {
-      gridEl.innerHTML = `<div class="ia-panel__empty">${
+      gridEl.innerHTML = emptyStateHtml(
+        "icons",
         query.trim()
           ? "No icons match that search."
           : "No icons in this pack yet."
-      }</div>`;
+      );
       return;
     }
 
@@ -358,6 +530,7 @@ export function createReplacePanel(
       void renderGrid();
       searchInput.value = query;
     }
+    syncPickerInputs();
   }
 
   function refresh() {
@@ -403,6 +576,7 @@ export function createReplacePanel(
   tabsEl.addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest("[data-lib]") as HTMLElement | null;
     if (!btn) return;
+    renamingPackId = null;
     library = btn.dataset.lib as IconLibraryId;
     selected = null;
     if (library === "custom") {
@@ -432,16 +606,60 @@ export function createReplacePanel(
   });
 
   packsEl.addEventListener("click", (e) => {
+    const start = (e.target as HTMLElement).closest(
+      "[data-rename-start]"
+    ) as HTMLElement | null;
+    if (start?.dataset.renameStart) {
+      beginRename(start.dataset.renameStart);
+      return;
+    }
+    const kebab = (e.target as HTMLElement).closest(
+      "[data-pack-menu]"
+    ) as HTMLElement | null;
+    if (kebab?.dataset.packMenu) {
+      e.stopPropagation();
+      togglePackMenu(kebab.dataset.packMenu, kebab);
+      return;
+    }
     const browse = (e.target as HTMLElement).closest(
       "[data-browse]"
     ) as HTMLElement | null;
     if (!browse?.dataset.browse) return;
+    renamingPackId = null;
     browsingPackId = browse.dataset.browse;
     customMode = "browse";
     query = "";
     selected = null;
     refresh();
   });
+
+  packsEl.addEventListener("input", (e) => {
+    const input = e.target as HTMLInputElement;
+    if (!input.dataset.rename) return;
+    sizeRenameInput(input);
+  });
+
+  packsEl.addEventListener("keydown", (e) => {
+    const input = e.target as HTMLInputElement;
+    if (!input.dataset.rename) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      endRename(input, true);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      endRename(input, false);
+    }
+  });
+
+  packsEl.addEventListener(
+    "blur",
+    (e) => {
+      const input = e.target as HTMLInputElement;
+      if (!input.dataset.rename) return;
+      endRename(input, true);
+    },
+    true
+  );
 
   backPacksBtn.addEventListener("click", () => {
     customMode = "manage";
@@ -461,24 +679,6 @@ export function createReplacePanel(
     }, 80);
   });
 
-  chooseBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    fileInput.click();
-  });
-
-  chooseFolderBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    folderInput.click();
-  });
-
-  // Don't open a picker on bare dropzone clicks — that stacked a file dialog
-  // on top of "Choose folder" and forced a cancel-then-retry. Drag-drop still works.
-  dropzone.addEventListener("click", (e) => {
-    e.preventDefault();
-  });
-
   fileInput.addEventListener("change", () => {
     if (fileInput.files?.length) void importFiles(fileInput.files);
     fileInput.value = "";
@@ -488,6 +688,17 @@ export function createReplacePanel(
     if (folderInput.files?.length) void importFiles(folderInput.files);
     folderInput.value = "";
   });
+
+  function bindPickerHover(input: HTMLInputElement, btn: HTMLElement) {
+    input.addEventListener("pointerenter", () => {
+      btn.classList.add("is-hover");
+    });
+    input.addEventListener("pointerleave", () => {
+      btn.classList.remove("is-hover");
+    });
+  }
+  bindPickerHover(fileInput, chooseBtn);
+  bindPickerHover(folderInput, chooseFolderBtn);
 
   dropzone.addEventListener("dragenter", (e) => {
     e.preventDefault();
@@ -553,6 +764,21 @@ export function createReplacePanel(
     void Promise.resolve(callbacks.onSelectIcon(selected));
   });
 
+  root.addEventListener("click", (e) => {
+    const del = (e.target as HTMLElement).closest(
+      "[data-pack-delete]"
+    ) as HTMLElement | null;
+    if (del?.dataset.packDelete) {
+      void deletePack(del.dataset.packDelete);
+      return;
+    }
+    if (
+      !(e.target as HTMLElement).closest("[data-pack-menu], .ia-pack-menu")
+    ) {
+      closePackMenu();
+    }
+  });
+
   function open(scanned: ScannedElement) {
     current = scanned;
     query = "";
@@ -568,8 +794,10 @@ export function createReplacePanel(
   }
 
   function close() {
+    closePackMenu();
     root.hidden = true;
     current = null;
+    syncPickerInputs();
   }
 
   function isOpen() {
@@ -577,6 +805,11 @@ export function createReplacePanel(
   }
 
   function destroy() {
+    closePackMenu();
+    if (pickerRaf != null) cancelAnimationFrame(pickerRaf);
+    pickerRaf = null;
+    fileInput.remove();
+    folderInput.remove();
     root.remove();
   }
 
