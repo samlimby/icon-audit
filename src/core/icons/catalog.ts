@@ -173,20 +173,38 @@ const SVG_ROOT_ATTRS = [
 ] as const;
 
 export function renderModeFor(icon: CatalogIcon): IconRenderMode {
+  if (icon.library === "custom") {
+    return customRenderMode(icon.svgAttrs, icon.paths);
+  }
   if (icon.render) return icon.render;
   if (icon.library === "fontawesome") return "fill";
-  if (icon.library === "custom") return inferCustomRender(icon);
   return "stroke";
 }
 
-function inferCustomRender(icon: CatalogIcon): IconRenderMode {
-  const rootFill = icon.svgAttrs?.fill;
+function isPaint(value: string | undefined): boolean {
+  if (!value) return false;
+  return value.trim().toLowerCase() !== "none";
+}
+
+/** Custom packs with no stroke presentation are fill (SVG default), not outline. */
+export function customRenderMode(
+  svgAttrs: Record<string, string> | undefined,
+  paths: string
+): IconRenderMode {
+  const rootFill = svgAttrs?.fill?.trim().toLowerCase();
   if (rootFill === "none") return "stroke";
-  if (rootFill && rootFill !== "none") return "fill";
-  if (/stroke=/i.test(icon.paths)) return "stroke";
-  if (/fill=["'](?!none)[^"']+["']/i.test(icon.paths)) return "fill";
-  // Bare paths from an outline pack (fill="none" lived on the discarded <svg>).
-  return "stroke";
+  if (isPaint(svgAttrs?.stroke)) return "stroke";
+  if (
+    svgAttrs?.["stroke-width"] ||
+    svgAttrs?.["stroke-linecap"] ||
+    svgAttrs?.["stroke-linejoin"] ||
+    svgAttrs?.["stroke-miterlimit"]
+  ) {
+    return "stroke";
+  }
+  if (/stroke=["'](?!none)[^"']+["']/i.test(paths)) return "stroke";
+  if (/stroke-width=/i.test(paths)) return "stroke";
+  return "fill";
 }
 
 function escapeAttr(value: string): string {
@@ -206,8 +224,12 @@ function customRootAttrs(icon: CatalogIcon, color: string): string | null {
     }
     parts.push(`${key}="${escapeAttr(value)}"`);
   }
-  if (!captured.fill && renderModeFor(icon) === "stroke") {
-    parts.unshift(`fill="none"`);
+  if (!captured.fill) {
+    parts.unshift(
+      renderModeFor(icon) === "stroke"
+        ? `fill="none"`
+        : `fill="${escapeAttr(color)}"`
+    );
   }
   return parts.length > 0 ? parts.join(" ") : null;
 }

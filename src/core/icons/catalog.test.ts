@@ -66,18 +66,20 @@ describe("icon catalogs", () => {
     expect(svg).not.toMatch(/<svg[^>]*fill="currentColor"/);
   });
 
-  it("treats legacy custom packs with bare paths as stroke", () => {
+  it("treats custom packs with no stroke attrs as fill", () => {
     const icon: CatalogIcon = {
       id: "pack-legacy",
       name: "legacy-icon",
       library: "custom",
       packageName: "custom-pack",
       exportName: "Legacy",
-      paths: `<path d="M6 4h4"/>`,
+      paths: `<path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>`,
       viewBox: "0 0 24 24",
+      render: "stroke",
     };
     const svg = svgMarkupFor(icon, 22);
-    expect(svg).toContain('fill="none"');
-    expect(svg).toContain('stroke="currentColor"');
+    expect(svg).toContain('fill="currentColor"');
+    expect(svg).not.toContain('stroke="currentColor"');
+    expect(svg).not.toContain("stroke-width");
   });
 });

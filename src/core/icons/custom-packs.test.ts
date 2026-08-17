@@ -21,6 +21,37 @@ describe("custom pack SVG capture", () => {
     expect(markup).toContain('stroke-width="1.5"');
     expect(markup).not.toMatch(/<svg[^>]*fill="currentColor"/);
   });
+
+  it("defaults packs with no stroke attrs to fill", async () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>`;
+    const file = {
+      name: "home.svg",
+      type: "image/svg+xml",
+      text: async () => svg,
+    } as File;
+    const { pack } = await createPackFromFiles([file]);
+    expect(pack).not.toBeNull();
+    const icon = pack!.icons[0];
+    expect(icon.render).toBe("fill");
+    const markup = svgMarkupFor(icon, 22);
+    expect(markup).toContain('fill="currentColor"');
+    expect(markup).not.toContain('stroke="currentColor"');
+  });
+
+  it("treats fill packs that set stroke=none as fill", async () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="none"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>`;
+    const file = {
+      name: "home-fill.svg",
+      type: "image/svg+xml",
+      text: async () => svg,
+    } as File;
+    const { pack } = await createPackFromFiles([file]);
+    const icon = pack!.icons[0];
+    expect(icon.render).toBe("fill");
+    const markup = svgMarkupFor(icon, 22);
+    expect(markup).toContain('fill="currentColor"');
+    expect(markup).not.toContain('stroke="currentColor"');
+  });
 });
 
 describe("renameCustomPack", () => {

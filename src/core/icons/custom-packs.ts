@@ -1,4 +1,4 @@
-import type { CatalogIcon, IconRenderMode } from "./catalog";
+import { customRenderMode, type CatalogIcon, type IconRenderMode } from "./catalog";
 
 const STORAGE_KEY = "icon-audit:custom-packs";
 
@@ -77,15 +77,6 @@ export function captureSvgRootAttrs(el: Element): Record<string, string> {
   return attrs;
 }
 
-function renderFromSvg(el: Element): IconRenderMode {
-  const fill = (el.getAttribute("fill") || "").toLowerCase();
-  if (fill === "none") return "stroke";
-  if (el.getAttribute("stroke") || el.querySelector("[stroke]")) return "stroke";
-  if (fill && fill !== "none") return "fill";
-  if (el.querySelector("[fill]:not([fill='none'])")) return "fill";
-  return "stroke";
-}
-
 function extractSvgInner(svgText: string): {
   paths: string;
   viewBox: string;
@@ -111,11 +102,13 @@ function extractSvgInner(svgText: string): {
       return `0 0 ${parseFloat(w) || 24} ${parseFloat(h) || 24}`;
     })();
 
+  const svgAttrs = captureSvgRootAttrs(svg);
+  const paths = svg.innerHTML.trim();
   return {
-    paths: svg.innerHTML.trim(),
+    paths,
     viewBox,
-    svgAttrs: captureSvgRootAttrs(svg),
-    render: renderFromSvg(svg),
+    svgAttrs,
+    render: customRenderMode(svgAttrs, paths),
   };
 }
 
@@ -131,16 +124,18 @@ export function parseSvgSprite(
       const rawId = symbol.getAttribute("id") || `symbol-${index + 1}`;
       const name = slugify(rawId);
       const viewBox = symbol.getAttribute("viewBox") || "0 0 24 24";
+      const paths = symbol.innerHTML.trim();
+      const svgAttrs = captureSvgRootAttrs(symbol);
       return {
         id: `${packId}-${name}`,
         name,
         library: "custom" as const,
         packageName: "custom-pack",
         exportName: toPascal(name),
-        paths: symbol.innerHTML.trim(),
+        paths,
         viewBox,
-        render: renderFromSvg(symbol),
-        svgAttrs: captureSvgRootAttrs(symbol),
+        render: customRenderMode(svgAttrs, paths),
+        svgAttrs,
       };
     })
     .filter((icon) => icon.paths);

@@ -18,13 +18,7 @@ import {
   Users,
 } from "lucide-react";
 import { IconAudit } from "icon-audit/react";
-import {
-  DataUriImg,
-  LocalImg,
-  NavItem,
-  REMOTE,
-  RemoteImg,
-} from "./icons";
+import { LocalImg, NavItem, REMOTE, RemoteImg } from "./icons";
 
 const DEPLOYS = [
   { env: "prod", service: "api-gateway", sha: "a1c8f2", status: "healthy", ago: "2m" },
@@ -76,7 +70,22 @@ export default function App() {
 
         <div className="acme-nav-icons">
           <LocalImg name="help-icon" alt="Help icon" className="acme-icon" />
-          <RemoteImg src={REMOTE.bell} alt="Notifications icon" className="acme-icon" />
+          <svg
+            className="acme-icon"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="rgb(24, 24, 27)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            role="img"
+            aria-label="Notifications icon"
+          >
+            <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+            <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />
+          </svg>
           <Sliders className="acme-icon" size={18} aria-label="Sliders" />
           <svg
             className="acme-icon"
@@ -176,7 +185,18 @@ export default function App() {
               value="3"
               meta="Remote <img> — red"
               tone="warn"
-              icon={<RemoteImg src={REMOTE.chart} alt="Degraded icon" size={18} />}
+              icon={
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 384 512"
+                  fill="rgb(202, 138, 4)"
+                  role="img"
+                  aria-label="Degraded icon"
+                >
+                  <path d="M64 512c-29.8 0-54.8-20.4-61.9-48l61.9 0 0 48zm104 0l-56 0 0-48 56 0 0 48zm104 0l-56 0 0-48 56 0 0 48zm109.9-48c-7.1 27.6-32.1 48-61.9 48l0-48 61.9 0zM48 416l-48 0 0-48 48 0 0 48zm336 0l-48 0 0-48 48 0 0 48zM213.5 0c17 0 33.2 6.8 45.2 18.8L365.3 125.2c12 12 18.7 28.3 18.7 45.2L384 320 0 320 0 64C0 28.7 28.7 0 64 0L213.5 0zM208 152c0 13.3 10.7 24 24 24l93.5 0-117.5-117.5 0 93.5z" />
+                </svg>
+              }
             />
             <Kpi
               label="Failed"
@@ -196,8 +216,8 @@ export default function App() {
                   role="img"
                   aria-label="Failed icon"
                 >
-                  <path d="m14 12 4 4 4-4" />
-                  <path d="M18 16V7" />
+                  <path d="m15 16 2.536-7.328a1.02 1.02 1 0 1 1.928 0L22 16" />
+                  <path d="M15.697 14h5.606" />
                   <path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16" />
                   <path d="M3.304 13h6.392" />
                 </svg>
@@ -208,7 +228,45 @@ export default function App() {
               value="4.2m"
               meta="Data URI <img> — red"
               tone="neutral"
-              icon={<DataUriImg alt="Duration icon" size={18} />}
+              icon={
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="rgb(82, 82, 91)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  role="img"
+                  aria-label="Duration icon"
+                >
+                  <path
+                    d="M21 7V17C21 19.2091 19.2091 21 17 21H7C4.79086 21 3 19.2091 3 17V7C3 4.79086 4.79086 3 7 3H17C19.2091 3 21 4.79086 21 7Z"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M16 12L16 16"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M16 8.99977L16 9.00977"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M7 16L8.125 13M13 16L11.875 13M8.125 13L10 8L11.875 13M8.125 13L11.875 13"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              }
             />
           </div>
 
