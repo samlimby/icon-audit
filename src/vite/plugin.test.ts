@@ -6,6 +6,14 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { PROJECT_PACKS_ENDPOINT, PROJECT_PACKS_HEADER } from "../project-packs";
 import {
+  ICON_AUDIT_MODULE,
+  ICON_AUDIT_REACT_MODULE,
+  ICON_AUDIT_STUB_ID,
+  iconAudit,
+  overlayInjectScript,
+  overlayStubModule,
+} from "./index";
+import {
   handlePacksRequest,
   packsFilePath,
   readPacksFile,
@@ -40,6 +48,59 @@ describe("packs file helpers", () => {
   it("returns an empty list when the file is missing", () => {
     dir = tempDir();
     expect(readPacksFile(packsFilePath(dir))).toEqual([]);
+  });
+});
+
+describe("iconAudit plugin", () => {
+  it("injects a serve-only mount script that imports icon-audit", () => {
+    const [serve] = iconAudit();
+    expect(serve.apply).toBe("serve");
+    const tags = serve.transformIndexHtml!();
+    expect(tags).toHaveLength(1);
+    expect(tags[0].tag).toBe("script");
+    expect(tags[0].attrs.type).toBe("module");
+    expect(tags[0].children).toBe(overlayInjectScript());
+    expect(tags[0].children).toContain(`from "${ICON_AUDIT_MODULE}"`);
+    expect(tags[0].children).toContain("mountIconAudit()");
+  });
+
+  it("forwards JSON mount options into the injected script", () => {
+    const [serve] = iconAudit({ mount: { position: "top-right" } });
+    const tags = serve.transformIndexHtml!();
+    expect(tags[0].children).toContain(
+      'mountIconAudit({"position":"top-right"})'
+    );
+  });
+
+  it("skips injection when inject is false", () => {
+    const [serve] = iconAudit({ inject: false });
+    expect(serve.transformIndexHtml!()).toEqual([]);
+  });
+
+  it("skips injection during vite preview", () => {
+    const [serve] = iconAudit();
+    serve.configResolved!({ isPreview: true });
+    expect(serve.transformIndexHtml!()).toEqual([]);
+  });
+
+  it("stubs leftover <IconAudit /> imports during serve so they never mount", () => {
+    const [serve] = iconAudit();
+    expect(serve.resolveId!(ICON_AUDIT_REACT_MODULE)).toBe(ICON_AUDIT_STUB_ID);
+    expect(serve.resolveId!(ICON_AUDIT_MODULE)).toBeUndefined();
+    expect(serve.load!(ICON_AUDIT_STUB_ID)).toContain("export function IconAudit");
+  });
+
+  it("stubs leftover app imports during production builds", () => {
+    const stub = iconAudit()[1];
+    expect(stub.apply).toBe("build");
+    expect(stub.resolveId!(ICON_AUDIT_MODULE)).toBe(ICON_AUDIT_STUB_ID);
+    expect(stub.resolveId!(ICON_AUDIT_REACT_MODULE)).toBe(ICON_AUDIT_STUB_ID);
+    expect(stub.resolveId!("react")).toBeUndefined();
+    expect(stub.load!(ICON_AUDIT_STUB_ID)).toBe(overlayStubModule());
+    expect(stub.load!(ICON_AUDIT_STUB_ID)).toContain("export function IconAudit");
+    expect(stub.load!(ICON_AUDIT_STUB_ID)).toContain(
+      "export function mountIconAudit"
+    );
   });
 });
 

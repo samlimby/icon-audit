@@ -108,6 +108,10 @@ async function copyText(text: string): Promise<boolean> {
  * dashed for inline SVG, red dashed for <img>. Click a highlight to
  * open the replace panel and copy an agent prompt. No-ops outside
  * dev environments unless `options.enabled` forces it on.
+ *
+ * Runtime gating is not enough for production CI: a static import of this
+ * module still has to resolve at compile time. Vite apps should mount via
+ * `icon-audit/vite` instead of importing this from application source.
  */
 export function mountIconAudit(options: IconAuditOptions = {}): IconAuditController {
   const enabled = options.enabled ?? isDevEnvironment();

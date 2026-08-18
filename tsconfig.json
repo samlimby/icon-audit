@@ -14,8 +14,9 @@
     "noUnusedParameters": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "noEmit": true
+    "noEmit": true,
+    "allowJs": true
   },
-  "include": ["src"],
+  "include": ["src", "scripts/wrap-dev-script.mjs"],
   "exclude": ["node_modules", "dist", "example"]
 }

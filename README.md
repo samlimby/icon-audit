@@ -11,9 +11,8 @@ into a missing-image glyph in production. `icon-audit` scans the rendered DOM
 and draws a dashed outline over every icon it finds: **green** for inline
 `<svg>` (bundled, safe), **red** for `<img>` (fetched, at risk).
 
-It only activates in dev environments (`localhost`, `127.0.0.1`, `*.local`,
-or `NODE_ENV !== "production"`) and is a safe no-op everywhere else, so it's
-fine to leave mounted in your app permanently.
+It only activates in the Vite dev server. **Do not import it from application
+source** (`App.tsx`, layouts, entry files).
 
 ## Install
 
@@ -21,35 +20,37 @@ fine to leave mounted in your app permanently.
 npm install --save-dev icon-audit
 ```
 
-## Usage
+That is the whole setup. Do **not** add `<IconAudit />` or any `icon-audit`
+import to your app.
 
-### React
+On install, a plain `"dev": "vite"` (or `"start": "vite"`) script is rewritten
+to load the overlay through the `icon-audit` CLI. `vite build` is left
+alone, so GitHub Actions / production Docker images do not need the package
+on disk.
 
-Mount it once near your app root (e.g. a Next.js root layout):
+If your `dev` script is not a plain `vite` command, run `npx icon-audit`
+instead of `vite` (same flags: `npx icon-audit --host`).
 
-```tsx
-import { IconAudit } from "icon-audit/react";
+`<IconAudit />` is a no-op leftover and does not mount the overlay.
 
-export default function RootLayout({ children }) {
-  return (
-    <>
-      {children}
-      <IconAudit />
-    </>
-  );
-}
-```
+## Persist custom packs (optional)
 
-### Framework-agnostic
+The overlay writes uploaded custom packs to
+`.icon-audit/custom-packs.json` when the Vite plugin is loaded (the CLI
+does this for you). Without that, packs stay in this origin's `localStorage`.
+
+Commit `.icon-audit/` to share packs with teammates, or gitignore it to keep
+them local.
+
+To add the plugin yourself instead of using the CLI:
 
 ```ts
-import { mountIconAudit } from "icon-audit";
+import { iconAudit } from "icon-audit/vite";
+import { defineConfig } from "vite";
 
-const audit = mountIconAudit();
-
-// later, if needed
-audit.rescan();
-audit.destroy();
+export default defineConfig({
+  plugins: [iconAudit()],
+});
 ```
 
 ## Using it
@@ -85,47 +86,29 @@ signal is enough):
 
 ## Options
 
+Pass overlay options through the Vite plugin:
+
 ```ts
-mountIconAudit({
-  enabled: true, // force on/off, overrides environment detection
-  position: "bottom-left", // "bottom-left" | "bottom-right" | "top-left" | "top-right"
-  shortcut: "mod+shift+i", // set to null to disable the keyboard shortcut
-  root: document.body, // scan a subtree instead of the whole page
-  iconMaxSize: 48,
-  iconAspectRatioRange: [0.4, 2.5],
-  iconNamePattern: /icon|glyph|chevron|caret|logo-mark|pictogram|ico-|-ico\b/i,
+iconAudit({
+  mount: {
+    enabled: true, // force on/off, overrides environment detection
+    position: "bottom-left", // "bottom-left" | "bottom-right" | "top-left" | "top-right"
+    shortcut: "mod+shift+i", // set to null to disable the keyboard shortcut
+    iconMaxSize: 48,
+    iconAspectRatioRange: [0.4, 2.5],
+  },
 });
 ```
 
-`<IconAudit />` accepts the same options as props.
-
-## Persist custom packs (Vite)
-
-By default, uploaded custom packs are stored in this origin's `localStorage`
-(they survive refresh, but not a different port or host).
-
-Add the Vite plugin so an upload is written immediately to
-`.icon-audit/custom-packs.json` in the project — no refresh required. That
-file is then loaded on any origin serving this app.
-
-```ts
-import { iconAudit } from "icon-audit/vite";
-import { defineConfig } from "vite";
-
-export default defineConfig({
-  plugins: [iconAudit()],
-});
-```
-
-Commit `.icon-audit/` to share packs with teammates, or gitignore it to keep
-them local. Without the plugin, packs still persist across refresh on the
-same origin.
+Framework-agnostic `mountIconAudit({ ... })` accepts the same fields plus
+`root` (scan a subtree) and `iconNamePattern`.
 
 ## Development
 
 You don't need to publish to npm to review overlay UI. `example/` is a fake
-icon-heavy dashboard (nav, KPIs, table actions, integrations) that mounts
-`<IconAudit />` the same way a consuming app would.
+icon-heavy dashboard (nav, KPIs, table actions, integrations). The Vite
+plugin injects the overlay the same way a consuming app should — nothing in
+`App.tsx` imports `icon-audit`.
 
 ```sh
 npm install

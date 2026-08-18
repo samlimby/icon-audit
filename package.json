@@ -1,6 +1,6 @@
 {
   "name": "icon-audit",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Dev-only overlay that flags <img> icons vs inline <svg>, then helps replace them with Lucide, Font Awesome, or Iconoir via searchable catalogs and copy-paste agent prompts.",
   "license": "MIT",
   "repository": {
@@ -33,11 +33,18 @@
       "require": "./dist/vite.cjs"
     }
   },
+  "bin": {
+    "icon-audit": "./scripts/cli.mjs"
+  },
   "files": [
     "dist/*.js",
     "dist/*.cjs",
     "dist/*.d.ts",
     "dist/*.d.cts",
+    "scripts/cli.mjs",
+    "scripts/dev-config.mjs",
+    "scripts/postinstall.mjs",
+    "scripts/wrap-dev-script.mjs",
     "README.md",
     "LICENSE"
   ],
@@ -52,6 +59,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "postinstall": "node ./scripts/postinstall.mjs",
     "prepublishOnly": "npm run typecheck && npm run test && npm run build"
   },
   "keywords": [

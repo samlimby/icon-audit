@@ -17,7 +17,6 @@ import {
   TriangleAlert,
   Users,
 } from "lucide-react";
-import { IconAudit } from "icon-audit/react";
 import { LocalImg, NavItem, REMOTE, RemoteImg } from "./icons";
 
 const DEPLOYS = [
@@ -52,8 +51,6 @@ export default function App() {
 
   return (
     <div className="acme">
-      <IconAudit enabled />
-
       <header className="acme-nav">
         <div className="acme-brand">
           <span className="acme-mark" aria-hidden />

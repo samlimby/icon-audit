@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
   const fromDist = mode === "dist";
 
   return {
+    // Plugin injects the overlay in serve only — App.tsx must not import icon-audit.
     plugins: [react(), iconAudit()],
     define: {
       __ICON_AUDIT_FROM_DIST__: JSON.stringify(fromDist),
@@ -19,12 +20,10 @@ export default defineConfig(({ mode }) => {
       alias: fromDist
         ? {
             // Same files npm would publish (package.json exports → dist/)
-            "icon-audit/react": path.resolve(repoRoot, "dist/react.js"),
             "icon-audit": path.resolve(repoRoot, "dist/index.js"),
           }
         : {
             // Source — edit overlay CSS/JS and hot-reload without a rebuild
-            "icon-audit/react": path.resolve(repoRoot, "src/react/IconAudit.tsx"),
             "icon-audit": path.resolve(repoRoot, "src/core/index.ts"),
           },
     },
