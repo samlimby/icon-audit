@@ -9,6 +9,9 @@ import {
   ICON_AUDIT_MODULE,
   ICON_AUDIT_REACT_MODULE,
   ICON_AUDIT_STUB_ID,
+  ICON_AUDIT_VIRTUAL_HTML_SRC,
+  ICON_AUDIT_VIRTUAL_ID,
+  ICON_AUDIT_VIRTUAL_RESOLVED,
   iconAudit,
   overlayInjectScript,
   overlayStubModule,
@@ -52,22 +55,30 @@ describe("packs file helpers", () => {
 });
 
 describe("iconAudit plugin", () => {
-  it("injects a serve-only mount script that imports icon-audit", () => {
+  it("injects a Vite-resolved virtual module instead of a bare import", () => {
     const [serve] = iconAudit();
     expect(serve.apply).toBe("serve");
     const tags = serve.transformIndexHtml!();
     expect(tags).toHaveLength(1);
     expect(tags[0].tag).toBe("script");
     expect(tags[0].attrs.type).toBe("module");
-    expect(tags[0].children).toBe(overlayInjectScript());
-    expect(tags[0].children).toContain(`from "${ICON_AUDIT_MODULE}"`);
-    expect(tags[0].children).toContain("mountIconAudit()");
+    expect(tags[0].attrs.src).toBe(ICON_AUDIT_VIRTUAL_HTML_SRC);
+    expect(tags[0].children).toBeUndefined();
+    expect(serve.resolveId!(ICON_AUDIT_VIRTUAL_ID)).toBe(
+      ICON_AUDIT_VIRTUAL_RESOLVED
+    );
+    expect(serve.resolveId!(ICON_AUDIT_VIRTUAL_HTML_SRC)).toBe(
+      ICON_AUDIT_VIRTUAL_RESOLVED
+    );
+    expect(serve.load!(ICON_AUDIT_VIRTUAL_RESOLVED)).toBe(overlayInjectScript());
+    expect(serve.load!(ICON_AUDIT_VIRTUAL_RESOLVED)).toContain(
+      `from "${ICON_AUDIT_MODULE}"`
+    );
   });
 
-  it("forwards JSON mount options into the injected script", () => {
+  it("forwards JSON mount options into the virtual overlay module", () => {
     const [serve] = iconAudit({ mount: { position: "top-right" } });
-    const tags = serve.transformIndexHtml!();
-    expect(tags[0].children).toContain(
+    expect(serve.load!(ICON_AUDIT_VIRTUAL_RESOLVED)).toContain(
       'mountIconAudit({"position":"top-right"})'
     );
   });

@@ -8,6 +8,10 @@ import {
 export const ICON_AUDIT_MODULE = "icon-audit";
 export const ICON_AUDIT_REACT_MODULE = "icon-audit/react";
 export const ICON_AUDIT_STUB_ID = "\0icon-audit-stub";
+export const ICON_AUDIT_VIRTUAL_ID = "virtual:icon-audit-overlay";
+export const ICON_AUDIT_VIRTUAL_RESOLVED = `\0${ICON_AUDIT_VIRTUAL_ID}`;
+/** URL Vite serves for the virtual overlay entry (not a bare specifier). */
+export const ICON_AUDIT_VIRTUAL_HTML_SRC = `/@id/${ICON_AUDIT_VIRTUAL_ID}`;
 
 export interface IconAuditInjectOptions {
   enabled?: boolean;
@@ -44,7 +48,7 @@ interface ViteLikeServer {
 interface HtmlTag {
   tag: string;
   attrs: Record<string, string>;
-  children: string;
+  children?: string;
   injectTo: "body";
 }
 
@@ -69,6 +73,15 @@ function attachPacksMiddleware(server: ViteLikeServer, filePath: string) {
       if (!handled) next();
     });
   });
+}
+
+function isOverlayVirtual(id: string): boolean {
+  return (
+    id === ICON_AUDIT_VIRTUAL_ID ||
+    id === ICON_AUDIT_VIRTUAL_RESOLVED ||
+    id === ICON_AUDIT_VIRTUAL_HTML_SRC ||
+    id.endsWith(ICON_AUDIT_VIRTUAL_ID)
+  );
 }
 
 function isOverlayImport(id: string): boolean {
@@ -111,11 +124,15 @@ export function iconAudit(options: IconAuditViteOptions = {}) {
         attachPacksMiddleware(server, packsFilePath(server.config.root, dir));
       },
       resolveId(id: string) {
-        // Leftover <IconAudit /> imports must not mount; the inject script does.
+        if (isOverlayVirtual(id)) return ICON_AUDIT_VIRTUAL_RESOLVED;
+        // Leftover <IconAudit /> imports must not mount; the virtual entry does.
         if (id === ICON_AUDIT_REACT_MODULE) return ICON_AUDIT_STUB_ID;
         return undefined;
       },
       load(id: string) {
+        if (id === ICON_AUDIT_VIRTUAL_RESOLVED) {
+          return overlayInjectScript(options.mount);
+        }
         if (id === ICON_AUDIT_STUB_ID) return overlayStubModule();
         return undefined;
       },
@@ -124,8 +141,10 @@ export function iconAudit(options: IconAuditViteOptions = {}) {
         return [
           {
             tag: "script",
-            attrs: { type: "module" },
-            children: overlayInjectScript(options.mount),
+            attrs: {
+              type: "module",
+              src: ICON_AUDIT_VIRTUAL_HTML_SRC,
+            },
             injectTo: "body",
           },
         ];
